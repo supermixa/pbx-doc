@@ -1,0 +1,36 @@
+body {
+    background-color: #f5f6f8;
+}
+
+.card {
+    border: none;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.table td, .table th {
+    vertical-align: middle;
+}
+
+pre.dialplan-code {
+    background: #1e1e1e;
+    color: #d4d4d4;
+    padding: 1rem;
+    border-radius: 0.375rem;
+    overflow-x: auto;
+    font-size: 0.85rem;
+}
+
+.audit-diff-old {
+    color: #b02a37;
+    text-decoration: line-through;
+}
+
+.audit-diff-new {
+    color: #198754;
+    font-weight: 600;
+}
+
+.stat-card .stat-number {
+    font-size: 2rem;
+    font-weight: 700;
+}
