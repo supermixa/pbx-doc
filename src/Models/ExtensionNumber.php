@@ -10,21 +10,36 @@ use App\Core\Db;
  */
 class ExtensionNumber
 {
-    public const TYPES = ['internal', 'did', 'queue', 'ivr', 'other'];
     public const STATUSES = ['active', 'inactive'];
     public const CATEGORIES = ['internal', 'external'];
 
-    private static array $fillable = ['number', 'category', 'type', 'owner', 'context', 'scenario_id', 'department_id', 'status', 'description'];
+    /** Типы для внутренних номеров (category = internal) */
+    public const INTERNAL_TYPES = ['internal', 'queue', 'ivr', 'other'];
+    /** Типы для внешних номеров (category = external); did_city — по умолчанию */
+    public const EXTERNAL_TYPES = ['did_city', 'did_mobile', 'calltracking', 'other'];
 
-    public static function all(string $search = '', string $category = ''): array
-    {
-        $sql = 'SELECT e.*, s.name AS scenario_name, d.name AS department_name,
-                       cu.name AS created_by_name, uu.name AS updated_by_name
+    private static array $fillable = [
+        'number', 'category', 'type', 'owner', 'context', 'scenario_id', 'department_id',
+        'legal_entity_id', 'provider_id', 'trunk_id', 'status', 'description',
+    ];
+
+    private const JOINS = '
                 FROM extensions e
                 LEFT JOIN scenarios s ON s.id = e.scenario_id
                 LEFT JOIN departments d ON d.id = e.department_id
+                LEFT JOIN legal_entities le ON le.id = e.legal_entity_id
+                LEFT JOIN providers pr ON pr.id = e.provider_id
+                LEFT JOIN trunks tr ON tr.id = e.trunk_id
                 LEFT JOIN users cu ON cu.id = e.created_by
                 LEFT JOIN users uu ON uu.id = e.updated_by';
+
+    private const SELECT_COLUMNS = 'e.*, s.name AS scenario_name, d.name AS department_name,
+                       le.name AS legal_entity_name, pr.name AS provider_name, tr.name AS trunk_name,
+                       cu.name AS created_by_name, uu.name AS updated_by_name';
+
+    public static function all(string $search = '', string $category = ''): array
+    {
+        $sql = 'SELECT ' . self::SELECT_COLUMNS . self::JOINS;
         $where = [];
         $params = [];
         if ($search !== '') {
@@ -46,14 +61,7 @@ class ExtensionNumber
 
     public static function find(int $id): ?array
     {
-        $sql = 'SELECT e.*, s.name AS scenario_name, d.name AS department_name,
-                       cu.name AS created_by_name, uu.name AS updated_by_name
-                FROM extensions e
-                LEFT JOIN scenarios s ON s.id = e.scenario_id
-                LEFT JOIN departments d ON d.id = e.department_id
-                LEFT JOIN users cu ON cu.id = e.created_by
-                LEFT JOIN users uu ON uu.id = e.updated_by
-                WHERE e.id = :id';
+        $sql = 'SELECT ' . self::SELECT_COLUMNS . self::JOINS . ' WHERE e.id = :id';
         $stmt = Db::connection()->prepare($sql);
         $stmt->execute(['id' => $id]);
         $row = $stmt->fetch();

@@ -11,7 +11,10 @@ use App\Core\View;
 use App\Models\AuditLog;
 use App\Models\Department;
 use App\Models\ExtensionNumber;
+use App\Models\LegalEntity;
+use App\Models\Provider;
 use App\Models\Scenario;
+use App\Models\Trunk;
 
 class ExtensionController
 {
@@ -55,13 +58,11 @@ class ExtensionController
         if (!Auth::requireEdit()) {
             return;
         }
-        View::render('extensions/form', [
+        View::render('extensions/form', array_merge([
             'title' => 'Новый номер',
             'extension' => null,
-            'scenarios' => Scenario::options(),
-            'departments' => Department::options(),
             'errors' => [],
-        ]);
+        ], $this->formOptions()));
     }
 
     public function store(): void
@@ -73,13 +74,11 @@ class ExtensionController
 
         [$data, $validator] = $this->validate($_POST);
         if ($validator->fails()) {
-            View::render('extensions/form', [
+            View::render('extensions/form', array_merge([
                 'title' => 'Новый номер',
                 'extension' => $_POST,
-                'scenarios' => Scenario::options(),
-                'departments' => Department::options(),
                 'errors' => $validator->errors(),
-            ]);
+            ], $this->formOptions()));
             return;
         }
 
@@ -102,13 +101,11 @@ class ExtensionController
             View::render('errors/404', []);
             return;
         }
-        View::render('extensions/form', [
+        View::render('extensions/form', array_merge([
             'title' => 'Редактирование номера',
             'extension' => $extension,
-            'scenarios' => Scenario::options(),
-            'departments' => Department::options(),
             'errors' => [],
-        ]);
+        ], $this->formOptions()));
     }
 
     public function update(array $params): void
@@ -128,13 +125,11 @@ class ExtensionController
 
         [$data, $validator] = $this->validate($_POST);
         if ($validator->fails()) {
-            View::render('extensions/form', [
+            View::render('extensions/form', array_merge([
                 'title' => 'Редактирование номера',
                 'extension' => array_merge($old, $_POST, ['id' => $id]),
-                'scenarios' => Scenario::options(),
-                'departments' => Department::options(),
                 'errors' => $validator->errors(),
-            ]);
+            ], $this->formOptions()));
             return;
         }
 
@@ -163,15 +158,32 @@ class ExtensionController
         header('Location: /extensions');
     }
 
+    /** Справочники, нужные форме создания/редактирования номера */
+    private function formOptions(): array
+    {
+        return [
+            'scenarios' => Scenario::options(),
+            'departments' => Department::options(),
+            'legalEntities' => LegalEntity::options(),
+            'providers' => Provider::optionsWithLegalEntities(),
+            'trunks' => Trunk::options(),
+        ];
+    }
+
     private function validate(array $input): array
     {
         $v = new Validator($input);
         $v->required('number', 'Номер')
             ->maxLength('number', 50, 'Номер')
             ->required('category', 'Категория')
-            ->in('category', ExtensionNumber::CATEGORIES, 'Категория')
-            ->required('type', 'Тип')
-            ->in('type', ExtensionNumber::TYPES, 'Тип')
+            ->in('category', ExtensionNumber::CATEGORIES, 'Категория');
+
+        $category = $v->get('category', 'internal');
+        $allowedTypes = $category === 'external' ? ExtensionNumber::EXTERNAL_TYPES : ExtensionNumber::INTERNAL_TYPES;
+        $defaultType = $category === 'external' ? 'did_city' : 'internal';
+
+        $v->required('type', 'Тип')
+            ->in('type', $allowedTypes, 'Тип')
             ->maxLength('owner', 150, 'Владелец')
             ->maxLength('context', 100, 'Контекст')
             ->in('status', ExtensionNumber::STATUSES, 'Статус');
@@ -182,14 +194,36 @@ class ExtensionController
         $departmentId = $input['department_id'] ?? '';
         $departmentId = ($departmentId === '' || $departmentId === null) ? null : (int)$departmentId;
 
+        $legalEntityId = $input['legal_entity_id'] ?? '';
+        $legalEntityId = ($legalEntityId === '' || $legalEntityId === null) ? null : (int)$legalEntityId;
+
+        $providerId = $input['provider_id'] ?? '';
+        $providerId = ($providerId === '' || $providerId === null) ? null : (int)$providerId;
+
+        $trunkId = $input['trunk_id'] ?? '';
+        $trunkId = ($trunkId === '' || $trunkId === null) ? null : (int)$trunkId;
+
+        // Поля привязаны к соответствующей категории — если категория не та, значение не сохраняем
+        if ($category !== 'internal') {
+            $departmentId = null;
+        }
+        if ($category !== 'external') {
+            $legalEntityId = null;
+            $providerId = null;
+            $trunkId = null;
+        }
+
         $data = [
             'number' => $v->get('number'),
-            'category' => $v->get('category', 'internal'),
-            'type' => $v->get('type', 'internal'),
+            'category' => $category,
+            'type' => $v->get('type', $defaultType) ?: $defaultType,
             'owner' => $v->get('owner'),
             'context' => $v->get('context'),
             'scenario_id' => $scenarioId,
             'department_id' => $departmentId,
+            'legal_entity_id' => $legalEntityId,
+            'provider_id' => $providerId,
+            'trunk_id' => $trunkId,
             'status' => $v->get('status', 'active') ?: 'active',
             'description' => $v->get('description'),
         ];

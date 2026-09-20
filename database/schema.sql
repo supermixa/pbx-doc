@@ -141,9 +141,73 @@ CREATE TABLE IF NOT EXISTS equipment (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------------------------------------------------------
+-- Юрлица (справочник)
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS legal_entities (
+    id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name            VARCHAR(190)        NOT NULL,
+    inn             VARCHAR(20)         NULL,
+    created_by      INT UNSIGNED        NULL,
+    updated_by      INT UNSIGNED        NULL,
+    created_at      DATETIME            NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      DATETIME            NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    KEY idx_legal_entities_name (name),
+    KEY idx_legal_entities_inn (inn),
+    CONSTRAINT fk_legal_entities_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+    CONSTRAINT fk_legal_entities_updated_by FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ----------------------------------------------------------------------------
+-- Провайдеры (справочник)
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS providers (
+    id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name            VARCHAR(190)        NOT NULL,
+    contract_number VARCHAR(100)        NULL,
+    support_phone   VARCHAR(50)         NULL,
+    note            TEXT                NULL,
+    created_by      INT UNSIGNED        NULL,
+    updated_by      INT UNSIGNED        NULL,
+    created_at      DATETIME            NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      DATETIME            NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    KEY idx_providers_name (name),
+    CONSTRAINT fk_providers_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+    CONSTRAINT fk_providers_updated_by FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Менеджеры провайдера (до 3 на провайдера — ограничение проверяется в коде,
+-- sort_order = позиция слота 0..2 на форме)
+CREATE TABLE IF NOT EXISTS provider_managers (
+    id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    provider_id     INT UNSIGNED        NOT NULL,
+    name            VARCHAR(150)        NULL,
+    phone           VARCHAR(50)         NULL,
+    sort_order      TINYINT UNSIGNED    NOT NULL DEFAULT 0,
+    KEY idx_provider_managers_provider (provider_id),
+    CONSTRAINT fk_provider_managers_provider FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Привязка провайдера к обслуживаемым юрлицам + ответственный менеджер
+CREATE TABLE IF NOT EXISTS provider_legal_entities (
+    id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    provider_id     INT UNSIGNED        NOT NULL,
+    legal_entity_id INT UNSIGNED        NOT NULL,
+    manager_id      INT UNSIGNED        NULL,
+    KEY idx_ple_provider (provider_id),
+    KEY idx_ple_legal_entity (legal_entity_id),
+    UNIQUE KEY uq_provider_legal_entity (provider_id, legal_entity_id),
+    CONSTRAINT fk_ple_provider FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE CASCADE,
+    CONSTRAINT fk_ple_legal_entity FOREIGN KEY (legal_entity_id) REFERENCES legal_entities(id) ON DELETE CASCADE,
+    CONSTRAINT fk_ple_manager FOREIGN KEY (manager_id) REFERENCES provider_managers(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ----------------------------------------------------------------------------
 -- Номера / экстеншены
 -- category: internal (внутренний) | external (внешний)
+-- type для internal: internal | queue | ivr | other
+-- type для external: did_city | did_mobile | calltracking | other
 -- department_id заполняется только для внутренних номеров
+-- legal_entity_id / provider_id / trunk_id заполняются только для внешних номеров
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS extensions (
     id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -154,6 +218,9 @@ CREATE TABLE IF NOT EXISTS extensions (
     context         VARCHAR(100)        NULL,
     scenario_id     INT UNSIGNED        NULL,
     department_id   INT UNSIGNED        NULL,
+    legal_entity_id INT UNSIGNED        NULL,
+    provider_id     INT UNSIGNED        NULL,
+    trunk_id        INT UNSIGNED        NULL,
     status          VARCHAR(20)         NOT NULL DEFAULT 'active',
     description     TEXT                NULL,
     created_by      INT UNSIGNED        NULL,
@@ -165,13 +232,17 @@ CREATE TABLE IF NOT EXISTS extensions (
     KEY idx_extensions_category (category),
     CONSTRAINT fk_extensions_scenario FOREIGN KEY (scenario_id) REFERENCES scenarios(id) ON DELETE SET NULL,
     CONSTRAINT fk_extensions_department FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE SET NULL,
+    CONSTRAINT fk_extensions_legal_entity FOREIGN KEY (legal_entity_id) REFERENCES legal_entities(id) ON DELETE SET NULL,
+    CONSTRAINT fk_extensions_provider FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE SET NULL,
+    CONSTRAINT fk_extensions_trunk FOREIGN KEY (trunk_id) REFERENCES trunks(id) ON DELETE SET NULL,
     CONSTRAINT fk_extensions_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
     CONSTRAINT fk_extensions_updated_by FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------------------------------------------------------
 -- Журнал аудита — кто, что и когда изменил
--- entity_type: trunk | route | scenario | extension | user | department | equipment_type | equipment
+-- entity_type: trunk | route | scenario | extension | user | department |
+--              equipment_type | equipment | legal_entity | provider
 -- action:      create | update | delete
 -- changes:     JSON вида {"field": {"old": ..., "new": ...}, ...}
 -- ----------------------------------------------------------------------------

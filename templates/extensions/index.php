@@ -39,7 +39,7 @@ use App\Core\View;
                     <th>Категория</th>
                     <th>Тип</th>
                     <th>Владелец</th>
-                    <th>Подразделение</th>
+                    <th>Подразделение / Юрлицо</th>
                     <th>Сценарий</th>
                     <th>Статус</th>
                     <th>Изменён</th>
@@ -55,7 +55,7 @@ use App\Core\View;
                     <td><span class="badge <?= $e['category'] === 'external' ? 'text-bg-info' : 'text-bg-light text-dark border' ?>"><?= View::e(Labels::extensionCategoryLabel($e['category'])) ?></span></td>
                     <td><?= View::e(Labels::extensionTypeLabel($e['type'])) ?></td>
                     <td><?= View::e($e['owner'] ?: '—') ?></td>
-                    <td><?= View::e($e['department_name'] ?? '—') ?></td>
+                    <td><?= View::e(($e['category'] === 'internal' ? $e['department_name'] : $e['legal_entity_name']) ?? '—') ?></td>
                     <td><?= View::e($e['scenario_name'] ?? '—') ?></td>
                     <td><span class="badge <?= $e['status'] === 'active' ? 'text-bg-success' : 'text-bg-secondary' ?>"><?= View::e(Labels::statusLabel($e['status'])) ?></span></td>
                     <td class="text-muted small"><?= View::e($e['updated_by_name'] ?? '—') ?>, <?= View::e(date('d.m.Y H:i', strtotime($e['updated_at']))) ?></td>

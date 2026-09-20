@@ -66,6 +66,13 @@ class Validator
         return $this;
     }
 
+    /** Добавить произвольную ошибку валидации (для полей вне простых правил выше) */
+    public function addError(string $key, string $message): self
+    {
+        $this->errors[$key] = $message;
+        return $this;
+    }
+
     public function fails(): bool
     {
         return !empty($this->errors);

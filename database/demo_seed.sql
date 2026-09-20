@@ -45,9 +45,27 @@ VALUES
   (3, 'Офис, серверная', '192.168.10.5', 'Базовая станция для беспроводных DECT-трубок отдела продаж.', 1, 1),
   (4, 'Серверная, стойка А', '192.168.10.2', 'Шлюз для подключения городских линий.', 1, 1);
 
-INSERT INTO extensions (number, category, type, owner, context, scenario_id, department_id, status, description, created_by, updated_by)
+INSERT INTO legal_entities (name, inn, created_by, updated_by)
 VALUES
-  ('100', 'internal', 'internal', 'Стойка ресепшн', 'internal', NULL, NULL, 'active', 'Основной номер администратора офиса.', 1, 1),
-  ('101', 'internal', 'internal', 'Иванов И.И. (продажи)', 'internal', NULL, 1, 'active', NULL, 1, 1),
-  ('78121234567', 'external', 'did', 'Компания — общий номер', 'from-trunk-beeline', 1, NULL, 'active',
+  ('ООО "Ромашка"', '7701234567', 1, 1),
+  ('ИП Иванов И.И.', '772812345678', 1, 1);
+
+INSERT INTO providers (name, contract_number, support_phone, note, created_by, updated_by)
+VALUES
+  ('Билайн Бизнес', '№ БИЗ-2024-118', '8-800-700-8000', 'Основной поставщик городских номеров.', 1, 1);
+
+INSERT INTO provider_managers (provider_id, name, phone, sort_order)
+VALUES
+  (1, 'Смирнова А.А.', '+7 900 111-22-33', 0),
+  (1, 'Кузнецов П.П.', '+7 900 444-55-66', 1);
+
+INSERT INTO provider_legal_entities (provider_id, legal_entity_id, manager_id)
+VALUES
+  (1, 1, 1);
+
+INSERT INTO extensions (number, category, type, owner, context, scenario_id, department_id, legal_entity_id, provider_id, trunk_id, status, description, created_by, updated_by)
+VALUES
+  ('100', 'internal', 'internal', 'Стойка ресепшн', 'internal', NULL, NULL, NULL, NULL, NULL, 'active', 'Основной номер администратора офиса.', 1, 1),
+  ('101', 'internal', 'internal', 'Иванов И.И. (продажи)', 'internal', NULL, 1, NULL, NULL, NULL, 'active', NULL, 1, 1),
+  ('78121234567', 'external', 'did_city', 'Компания — общий номер', 'from-trunk-beeline', 1, NULL, 1, 1, 1, 'active',
    'Городской номер, входящие идут на IVR.', 1, 1);

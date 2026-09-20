@@ -39,16 +39,19 @@ function nav_active(string $path): string
         <div class="collapse navbar-collapse" id="nav">
             <ul class="navbar-nav me-auto">
                 <li class="nav-item"><a class="nav-link<?= nav_active('/') ?>" href="/">Главная</a></li>
+                <li class="nav-item"><a class="nav-link<?= nav_active('/extensions') ?>" href="/extensions">Номера</a></li>
                 <li class="nav-item"><a class="nav-link<?= nav_active('/trunks') ?>" href="/trunks">Транки</a></li>
                 <li class="nav-item"><a class="nav-link<?= nav_active('/routes') ?>" href="/routes">Маршруты</a></li>
                 <li class="nav-item"><a class="nav-link<?= nav_active('/scenarios') ?>" href="/scenarios">Сценарии</a></li>
-                <li class="nav-item"><a class="nav-link<?= nav_active('/extensions') ?>" href="/extensions">Номера</a></li>
                 <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle<?= (nav_active('/departments') || nav_active('/equipment')) ? ' active' : '' ?>" href="#" role="button" data-bs-toggle="dropdown">Справочники</a>
+                    <a class="nav-link dropdown-toggle<?= (nav_active('/departments') || nav_active('/equipment') || nav_active('/legal-entities') || nav_active('/providers')) ? ' active' : '' ?>" href="#" role="button" data-bs-toggle="dropdown">Справочники</a>
                     <ul class="dropdown-menu">
                         <li><a class="dropdown-item" href="/departments">Подразделения</a></li>
                         <li><a class="dropdown-item" href="/equipment">Оборудование</a></li>
                         <li><a class="dropdown-item" href="/equipment-types">Типы оборудования</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="/legal-entities">Юрлица</a></li>
+                        <li><a class="dropdown-item" href="/providers">Провайдеры</a></li>
                     </ul>
                 </li>
                 <?php if (Auth::isAdmin()): ?>

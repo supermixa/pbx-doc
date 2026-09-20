@@ -28,13 +28,23 @@ $action = $isEdit ? '/extensions/' . (int)$extension['id'] . '/edit' : '/extensi
                 </select>
                 <?php if (isset($errors['category'])): ?><div class="invalid-feedback"><?= View::e($errors['category']) ?></div><?php endif; ?>
             </div>
-            <div class="col-md-4">
+
+            <div class="col-md-4" id="type-internal-field">
                 <label class="form-label">Тип *</label>
-                <select name="type" class="form-select">
-                    <?php foreach (ExtensionNumber::TYPES as $t): ?>
+                <select name="type" id="type-internal-select" class="form-select <?= isset($errors['type']) ? 'is-invalid' : '' ?>">
+                    <?php foreach (ExtensionNumber::INTERNAL_TYPES as $t): ?>
                         <option value="<?= $t ?>" <?= ($extension['type'] ?? 'internal') === $t ? 'selected' : '' ?>><?= View::e(Labels::extensionTypeLabel($t)) ?></option>
                     <?php endforeach; ?>
                 </select>
+            </div>
+            <div class="col-md-4" id="type-external-field">
+                <label class="form-label">Тип *</label>
+                <select name="type" id="type-external-select" class="form-select <?= isset($errors['type']) ? 'is-invalid' : '' ?>" disabled>
+                    <?php foreach (ExtensionNumber::EXTERNAL_TYPES as $t): ?>
+                        <option value="<?= $t ?>" <?= ($extension['type'] ?? '') === $t ? 'selected' : '' ?>><?= View::e(Labels::extensionTypeLabel($t)) ?></option>
+                    <?php endforeach; ?>
+                </select>
+                <?php if (isset($errors['type'])): ?><div class="invalid-feedback d-block"><?= View::e($errors['type']) ?></div><?php endif; ?>
             </div>
 
             <div class="col-md-6">
@@ -50,7 +60,7 @@ $action = $isEdit ? '/extensions/' . (int)$extension['id'] . '/edit' : '/extensi
                 </select>
             </div>
 
-            <div class="col-md-6" id="department-field">
+            <div class="col-md-6 internal-field" id="department-field">
                 <label class="form-label">Подразделение</label>
                 <select name="department_id" class="form-select">
                     <option value="">— не выбрано —</option>
@@ -62,6 +72,34 @@ $action = $isEdit ? '/extensions/' . (int)$extension['id'] . '/edit' : '/extensi
             <div class="col-md-6">
                 <label class="form-label">Контекст диалплана</label>
                 <input type="text" name="context" class="form-control" value="<?= View::e($extension['context'] ?? '') ?>" placeholder="internal">
+            </div>
+
+            <div class="col-md-4 external-field" id="legal-entity-field">
+                <label class="form-label">Юрлицо</label>
+                <select name="legal_entity_id" id="legal-entity-select" class="form-select">
+                    <option value="">— не выбрано —</option>
+                    <?php foreach ($legalEntities as $le): ?>
+                        <option value="<?= (int)$le['id'] ?>" <?= (int)($extension['legal_entity_id'] ?? 0) === (int)$le['id'] ? 'selected' : '' ?>><?= View::e($le['name']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="col-md-4 external-field" id="provider-field">
+                <label class="form-label">Провайдер</label>
+                <select name="provider_id" id="provider-select" class="form-select">
+                    <option value="">— сначала выберите юрлицо —</option>
+                    <?php foreach ($providers as $p): ?>
+                        <option value="<?= (int)$p['id'] ?>" data-legal-entities="<?= View::e($p['legal_entity_ids'] ?? '') ?>" <?= (int)($extension['provider_id'] ?? 0) === (int)$p['id'] ? 'selected' : '' ?>><?= View::e($p['name']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="col-md-4 external-field" id="trunk-field">
+                <label class="form-label">Транк</label>
+                <select name="trunk_id" class="form-select">
+                    <option value="">— не выбран —</option>
+                    <?php foreach ($trunks as $t): ?>
+                        <option value="<?= (int)$t['id'] ?>" <?= (int)($extension['trunk_id'] ?? 0) === (int)$t['id'] ? 'selected' : '' ?>><?= View::e($t['name']) ?></option>
+                    <?php endforeach; ?>
+                </select>
             </div>
 
             <div class="col-md-6">
@@ -89,10 +127,59 @@ $action = $isEdit ? '/extensions/' . (int)$extension['id'] . '/edit' : '/extensi
 (function () {
     var categorySelect = document.getElementById('category-select');
     var departmentField = document.getElementById('department-field');
-    function toggleDepartmentField() {
-        departmentField.style.display = categorySelect.value === 'internal' ? '' : 'none';
+    var internalFields = document.querySelectorAll('.internal-field');
+    var externalFields = document.querySelectorAll('.external-field');
+    var typeInternalField = document.getElementById('type-internal-field');
+    var typeExternalField = document.getElementById('type-external-field');
+    var typeInternalSelect = document.getElementById('type-internal-select');
+    var typeExternalSelect = document.getElementById('type-external-select');
+
+    function toggleByCategory() {
+        var isExternal = categorySelect.value === 'external';
+
+        internalFields.forEach(function (el) { el.style.display = isExternal ? 'none' : ''; });
+        externalFields.forEach(function (el) { el.style.display = isExternal ? '' : 'none'; });
+
+        typeInternalField.style.display = isExternal ? 'none' : '';
+        typeExternalField.style.display = isExternal ? '' : 'none';
+        typeInternalSelect.disabled = isExternal;
+        typeExternalSelect.disabled = !isExternal;
     }
-    categorySelect.addEventListener('change', toggleDepartmentField);
-    toggleDepartmentField();
+
+    categorySelect.addEventListener('change', toggleByCategory);
+    toggleByCategory();
+
+    var legalEntitySelect = document.getElementById('legal-entity-select');
+    var providerSelect = document.getElementById('provider-select');
+    var providerOptions = Array.prototype.slice.call(providerSelect.querySelectorAll('option[value]:not([value=""])'));
+    var providerPlaceholder = providerSelect.querySelector('option[value=""]');
+
+    function filterProviders() {
+        var legalEntityId = legalEntitySelect.value;
+        var anyVisible = false;
+        providerOptions.forEach(function (opt) {
+            var ids = (opt.getAttribute('data-legal-entities') || '').split(',');
+            var visible = legalEntityId !== '' && ids.indexOf(legalEntityId) !== -1;
+            opt.style.display = visible ? '' : 'none';
+            opt.disabled = !visible;
+            if (visible) {
+                anyVisible = true;
+            }
+        });
+        if (legalEntityId === '') {
+            providerPlaceholder.textContent = '— сначала выберите юрлицо —';
+        } else if (!anyVisible) {
+            providerPlaceholder.textContent = '— нет привязанных провайдеров —';
+        } else {
+            providerPlaceholder.textContent = '— не выбран —';
+        }
+        var currentOpt = providerSelect.options[providerSelect.selectedIndex];
+        if (currentOpt && currentOpt.value !== '' && currentOpt.style.display === 'none') {
+            providerSelect.value = '';
+        }
+    }
+
+    legalEntitySelect.addEventListener('change', filterProviders);
+    filterProviders();
 })();
 </script>

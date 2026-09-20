@@ -20,6 +20,8 @@ use App\Controllers\DepartmentController;
 use App\Controllers\EquipmentController;
 use App\Controllers\EquipmentTypeController;
 use App\Controllers\ExtensionController;
+use App\Controllers\LegalEntityController;
+use App\Controllers\ProviderController;
 use App\Controllers\RouteController;
 use App\Controllers\ScenarioController;
 use App\Controllers\TrunkController;
@@ -132,6 +134,24 @@ $router->get('/equipment/{id}/edit', fn($p) => (new EquipmentController())->edit
 $router->post('/equipment/{id}/edit', fn($p) => (new EquipmentController())->update($p));
 $router->post('/equipment/{id}/delete', fn($p) => (new EquipmentController())->destroy($p));
 $router->get('/equipment/{id}', fn($p) => (new EquipmentController())->show($p));
+
+// ---- Юрлица ---------------------------------------------------------------
+$router->get('/legal-entities', fn() => (new LegalEntityController())->index());
+$router->get('/legal-entities/create', fn() => (new LegalEntityController())->create());
+$router->post('/legal-entities', fn() => (new LegalEntityController())->store());
+$router->get('/legal-entities/{id}/edit', fn($p) => (new LegalEntityController())->edit($p));
+$router->post('/legal-entities/{id}/edit', fn($p) => (new LegalEntityController())->update($p));
+$router->post('/legal-entities/{id}/delete', fn($p) => (new LegalEntityController())->destroy($p));
+$router->get('/legal-entities/{id}', fn($p) => (new LegalEntityController())->show($p));
+
+// ---- Провайдеры -------------------------------------------------------------
+$router->get('/providers', fn() => (new ProviderController())->index());
+$router->get('/providers/create', fn() => (new ProviderController())->create());
+$router->post('/providers', fn() => (new ProviderController())->store());
+$router->get('/providers/{id}/edit', fn($p) => (new ProviderController())->edit($p));
+$router->post('/providers/{id}/edit', fn($p) => (new ProviderController())->update($p));
+$router->post('/providers/{id}/delete', fn($p) => (new ProviderController())->destroy($p));
+$router->get('/providers/{id}', fn($p) => (new ProviderController())->show($p));
 
 // ---- Пользователи (только администратор) -------------------------------
 $router->get('/users', fn() => (new UserController())->index());

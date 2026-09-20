@@ -29,6 +29,8 @@ class Labels
             'department' => 'Подразделение',
             'equipment' => 'Оборудование',
             'equipment_type' => 'Тип оборудования',
+            'legal_entity' => 'Юрлицо',
+            'provider' => 'Провайдер',
             default => $type,
         };
     }
@@ -44,6 +46,8 @@ class Labels
             'department' => '/departments/' . $id,
             'equipment' => '/equipment/' . $id,
             'equipment_type' => '/equipment-types/' . $id,
+            'legal_entity' => '/legal-entities/' . $id,
+            'provider' => '/providers/' . $id,
             default => '#',
         };
     }
@@ -94,6 +98,14 @@ class Labels
         'ip_address' => 'IP-адрес',
         'model' => 'Модель',
         'brand' => 'Бренд',
+        'inn' => 'ИНН',
+        'contract_number' => '№ договора',
+        'support_phone' => 'Телефон ТП',
+        'note' => 'Примечание',
+        'legal_entity_id' => 'Юрлицо',
+        'provider_id' => 'Провайдер',
+        'managers' => 'Менеджеры',
+        'legal_entities' => 'Обслуживаемые юрлица',
     ];
 
     public static function field(string $field): string
@@ -123,10 +135,13 @@ class Labels
     {
         return match ($type) {
             'internal' => 'Внутренний',
-            'did' => 'Городской (DID)',
             'queue' => 'Очередь',
             'ivr' => 'IVR',
+            'did_city' => 'Городской (DID)',
+            'did_mobile' => 'Сотовый (DID)',
+            'calltracking' => 'CallTracking',
             'other' => 'Другое',
+            'did' => 'Городской (DID)', // устаревшее значение до миграции 0002
             default => (string)$type,
         };
     }
