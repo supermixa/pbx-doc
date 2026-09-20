@@ -15,6 +15,7 @@ spl_autoload_register(function (string $class): void {
 });
 
 use App\Controllers\AuthController;
+use App\Controllers\CalltrackingTargetController;
 use App\Controllers\DashboardController;
 use App\Controllers\DepartmentController;
 use App\Controllers\EquipmentController;
@@ -152,6 +153,15 @@ $router->get('/providers/{id}/edit', fn($p) => (new ProviderController())->edit(
 $router->post('/providers/{id}/edit', fn($p) => (new ProviderController())->update($p));
 $router->post('/providers/{id}/delete', fn($p) => (new ProviderController())->destroy($p));
 $router->get('/providers/{id}', fn($p) => (new ProviderController())->show($p));
+
+// ---- Calltracking -----------------------------------------------------
+$router->get('/calltracking', fn() => (new CalltrackingTargetController())->index());
+$router->get('/calltracking/create', fn() => (new CalltrackingTargetController())->create());
+$router->post('/calltracking', fn() => (new CalltrackingTargetController())->store());
+$router->get('/calltracking/{id}/edit', fn($p) => (new CalltrackingTargetController())->edit($p));
+$router->post('/calltracking/{id}/edit', fn($p) => (new CalltrackingTargetController())->update($p));
+$router->post('/calltracking/{id}/delete', fn($p) => (new CalltrackingTargetController())->destroy($p));
+$router->get('/calltracking/{id}', fn($p) => (new CalltrackingTargetController())->show($p));
 
 // ---- Пользователи (только администратор) -------------------------------
 $router->get('/users', fn() => (new UserController())->index());

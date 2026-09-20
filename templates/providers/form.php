@@ -16,17 +16,12 @@ $action = $isEdit ? '/providers/' . (int)$provider['id'] . '/edit' : '/providers
         <?= Csrf::field() ?>
 
         <div class="row g-3">
-            <div class="col-md-6">
+            <div class="col-md-8">
                 <label class="form-label">Наименование *</label>
                 <input type="text" name="name" class="form-control <?= isset($errors['name']) ? 'is-invalid' : '' ?>" value="<?= View::e($provider['name'] ?? '') ?>" required>
                 <?php if (isset($errors['name'])): ?><div class="invalid-feedback"><?= View::e($errors['name']) ?></div><?php endif; ?>
             </div>
-            <div class="col-md-3">
-                <label class="form-label">№ договора</label>
-                <input type="text" name="contract_number" class="form-control <?= isset($errors['contract_number']) ? 'is-invalid' : '' ?>" value="<?= View::e($provider['contract_number'] ?? '') ?>">
-                <?php if (isset($errors['contract_number'])): ?><div class="invalid-feedback"><?= View::e($errors['contract_number']) ?></div><?php endif; ?>
-            </div>
-            <div class="col-md-3">
+            <div class="col-md-4">
                 <label class="form-label">Телефон ТП</label>
                 <input type="text" name="support_phone" class="form-control <?= isset($errors['support_phone']) ? 'is-invalid' : '' ?>" value="<?= View::e($provider['support_phone'] ?? '') ?>">
                 <?php if (isset($errors['support_phone'])): ?><div class="invalid-feedback"><?= View::e($errors['support_phone']) ?></div><?php endif; ?>
@@ -61,7 +56,7 @@ $action = $isEdit ? '/providers/' . (int)$provider['id'] . '/edit' : '/providers
 
         <hr class="my-4">
         <h5 class="mb-3">Обслуживаемые юрлица</h5>
-        <p class="text-muted small">Привяжите юрлица, которые обслуживает этот провайдер, и при необходимости укажите ответственного менеджера.</p>
+        <p class="text-muted small">Привяжите юрлица, которые обслуживает этот провайдер, и при необходимости укажите ответственного менеджера и № договора с этим юрлицом.</p>
         <div id="legal-entity-rows"></div>
         <button type="button" id="add-legal-entity-row" class="btn btn-outline-secondary btn-sm">+ Привязать юрлицо</button>
     </div>
@@ -80,6 +75,7 @@ $action = $isEdit ? '/providers/' . (int)$provider['id'] . '/edit' : '/providers
     var INITIAL_ROWS = <?= json_encode(array_map(fn($r) => [
         'legalEntityId' => $r['legal_entity_id'],
         'managerPosition' => $r['manager_position'],
+        'contractNumber' => $r['contract_number'] ?? '',
     ], $legalEntityRows), JSON_UNESCAPED_UNICODE) ?>;
 
     var container = document.getElementById('legal-entity-rows');
@@ -117,17 +113,21 @@ $action = $isEdit ? '/providers/' . (int)$provider['id'] . '/edit' : '/providers
         return html;
     }
 
-    function addRow(legalEntityId, managerPosition) {
+    function addRow(legalEntityId, managerPosition, contractNumber) {
         var row = document.createElement('div');
         row.className = 'row g-2 mb-2 align-items-end legal-entity-row';
         row.innerHTML =
-            '<div class="col-md-6">' +
+            '<div class="col-md-4">' +
                 '<label class="form-label small text-muted">Юрлицо</label>' +
                 '<select name="legal_entity_id[]" class="form-select legal-entity-select">' + buildLegalEntityOptions(legalEntityId) + '</select>' +
             '</div>' +
-            '<div class="col-md-4">' +
+            '<div class="col-md-3">' +
                 '<label class="form-label small text-muted">Менеджер</label>' +
                 '<select name="legal_entity_manager[]" class="form-select manager-position-select">' + buildManagerOptions(managerPosition) + '</select>' +
+            '</div>' +
+            '<div class="col-md-3">' +
+                '<label class="form-label small text-muted">№ договора</label>' +
+                '<input type="text" name="legal_entity_contract_number[]" class="form-control" value="' + escapeHtml(contractNumber || '') + '">' +
             '</div>' +
             '<div class="col-md-2">' +
                 '<button type="button" class="btn btn-outline-danger btn-sm w-100 remove-row-btn">Удалить</button>' +
@@ -139,7 +139,7 @@ $action = $isEdit ? '/providers/' . (int)$provider['id'] . '/edit' : '/providers
     }
 
     addBtn.addEventListener('click', function () {
-        addRow('', '');
+        addRow('', '', '');
     });
 
     // При изменении имени менеджера обновляем подписи во всех уже добавленных строках
@@ -153,10 +153,10 @@ $action = $isEdit ? '/providers/' . (int)$provider['id'] . '/edit' : '/providers
     });
 
     if (INITIAL_ROWS.length === 0) {
-        addRow('', '');
+        addRow('', '', '');
     } else {
         INITIAL_ROWS.forEach(function (r) {
-            addRow(r.legalEntityId, r.managerPosition);
+            addRow(r.legalEntityId, r.managerPosition, r.contractNumber);
         });
     }
 })();

@@ -43,6 +43,24 @@ use App\Core\View;
             Создан: <?= View::e($trunk['created_by_name'] ?? '—') ?>, <?= View::e(date('d.m.Y H:i', strtotime($trunk['created_at']))) ?><br>
             Изменён: <?= View::e($trunk['updated_by_name'] ?? '—') ?>, <?= View::e(date('d.m.Y H:i', strtotime($trunk['updated_at']))) ?>
         </p>
+
+        <div class="card mb-3">
+            <div class="card-header bg-white"><strong>Номера на этом транке</strong></div>
+            <div class="card-body p-0">
+                <?php if (empty($extensions)): ?>
+                    <p class="text-muted p-3 mb-0">Номера не привязаны.</p>
+                <?php else: ?>
+                    <ul class="list-group list-group-flush">
+                        <?php foreach ($extensions as $e): ?>
+                            <li class="list-group-item d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                <a href="/extensions/<?= (int)$e['id'] ?>"><?= View::e($e['number']) ?></a>
+                                <span class="text-muted small"><?= View::e(Labels::extensionTypeLabel($e['type'])) ?></span>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                <?php endif; ?>
+            </div>
+        </div>
     </div>
     <div class="col-lg-5">
         <?php require __DIR__ . '/../partials/audit_history.php'; ?>

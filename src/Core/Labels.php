@@ -31,6 +31,7 @@ class Labels
             'equipment_type' => 'Тип оборудования',
             'legal_entity' => 'Юрлицо',
             'provider' => 'Провайдер',
+            'calltracking_target' => 'Цель Calltracking',
             default => $type,
         };
     }
@@ -48,6 +49,7 @@ class Labels
             'equipment_type' => '/equipment-types/' . $id,
             'legal_entity' => '/legal-entities/' . $id,
             'provider' => '/providers/' . $id,
+            'calltracking_target' => '/calltracking/' . $id,
             default => '#',
         };
     }
@@ -85,7 +87,6 @@ class Labels
         'trunk_id' => 'Транк',
         'dialplan_code' => 'Код диалплана',
         'number' => 'Номер',
-        'owner' => 'Владелец',
         'scenario_id' => 'Сценарий',
         'email' => 'Email',
         'role' => 'Роль',
@@ -106,6 +107,8 @@ class Labels
         'provider_id' => 'Провайдер',
         'managers' => 'Менеджеры',
         'legal_entities' => 'Обслуживаемые юрлица',
+        'calltracking_target_id' => 'Цель Calltracking',
+        'target' => 'Цель',
     ];
 
     public static function field(string $field): string

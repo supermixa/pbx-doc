@@ -20,7 +20,7 @@ class ExtensionNumber
 
     private static array $fillable = [
         'number', 'category', 'type', 'owner', 'context', 'scenario_id', 'department_id',
-        'legal_entity_id', 'provider_id', 'trunk_id', 'status', 'description',
+        'legal_entity_id', 'provider_id', 'trunk_id', 'calltracking_target_id', 'status', 'description',
     ];
 
     private const JOINS = '
@@ -30,11 +30,13 @@ class ExtensionNumber
                 LEFT JOIN legal_entities le ON le.id = e.legal_entity_id
                 LEFT JOIN providers pr ON pr.id = e.provider_id
                 LEFT JOIN trunks tr ON tr.id = e.trunk_id
+                LEFT JOIN calltracking_targets ct ON ct.id = e.calltracking_target_id
                 LEFT JOIN users cu ON cu.id = e.created_by
                 LEFT JOIN users uu ON uu.id = e.updated_by';
 
     private const SELECT_COLUMNS = 'e.*, s.name AS scenario_name, d.name AS department_name,
                        le.name AS legal_entity_name, pr.name AS provider_name, tr.name AS trunk_name,
+                       ct.target AS calltracking_target_name,
                        cu.name AS created_by_name, uu.name AS updated_by_name';
 
     public static function all(string $search = '', string $category = ''): array
@@ -67,6 +69,15 @@ class ExtensionNumber
         $stmt->execute(['id' => $id]);
         $row = $stmt->fetch();
         return $row ?: null;
+    }
+
+    /** Номера, привязанные к данному транку (для карточки транка) */
+    public static function forTrunk(int $trunkId): array
+    {
+        $sql = 'SELECT ' . self::SELECT_COLUMNS . self::JOINS . ' WHERE e.trunk_id = :trunk_id ORDER BY e.number';
+        $stmt = Db::connection()->prepare($sql);
+        $stmt->execute(['trunk_id' => $trunkId]);
+        return $stmt->fetchAll();
     }
 
     public static function countByCategory(string $category): int

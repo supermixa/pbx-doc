@@ -5,16 +5,17 @@ namespace App\Models;
 use App\Core\Db;
 
 /**
- * Провайдер связи: реквизиты договора, до 3 контактных менеджеров
- * (провайдер_менеджеры, позиция sort_order 0..2) и список обслуживаемых
- * юрлиц (многие-ко-многим через provider_legal_entities), для каждой связи
- * можно указать ответственного менеджера.
+ * Провайдер связи: до 3 контактных менеджеров (провайдер_менеджеры, позиция
+ * sort_order 0..2) и список обслуживаемых юрлиц (многие-ко-многим через
+ * provider_legal_entities); для каждой такой связи можно указать
+ * ответственного менеджера и № договора (у одного провайдера может быть
+ * разный договор на каждое обслуживаемое юрлицо).
  */
 class Provider
 {
     public const MAX_MANAGERS = 3;
 
-    private static array $fillable = ['name', 'contract_number', 'support_phone', 'note'];
+    private static array $fillable = ['name', 'support_phone', 'note'];
 
     public static function all(string $search = ''): array
     {
@@ -25,9 +26,8 @@ class Provider
                 LEFT JOIN users uu ON uu.id = p.updated_by';
         $params = [];
         if ($search !== '') {
-            $sql .= ' WHERE p.name LIKE :search1 OR p.contract_number LIKE :search2';
-            $params['search1'] = "%{$search}%";
-            $params['search2'] = "%{$search}%";
+            $sql .= ' WHERE p.name LIKE :search';
+            $params['search'] = "%{$search}%";
         }
         $sql .= ' ORDER BY p.name';
         $stmt = Db::connection()->prepare($sql);
@@ -194,7 +194,7 @@ class Provider
 
     /**
      * Полностью заменяет набор привязанных юрлиц провайдера.
-     * $links — [['legal_entity_id' => int, 'manager_id' => ?int], ...]
+     * $links — [['legal_entity_id' => int, 'manager_id' => ?int, 'contract_number' => ?string], ...]
      */
     public static function replaceLegalEntityLinks(int $providerId, array $links): void
     {
@@ -205,13 +205,15 @@ class Provider
             return;
         }
         $stmt = $conn->prepare(
-            'INSERT INTO provider_legal_entities (provider_id, legal_entity_id, manager_id) VALUES (:provider_id, :legal_entity_id, :manager_id)'
+            'INSERT INTO provider_legal_entities (provider_id, legal_entity_id, manager_id, contract_number)
+             VALUES (:provider_id, :legal_entity_id, :manager_id, :contract_number)'
         );
         foreach ($links as $link) {
             $stmt->execute([
                 'provider_id' => $providerId,
                 'legal_entity_id' => $link['legal_entity_id'],
                 'manager_id' => $link['manager_id'] ?? null,
+                'contract_number' => $link['contract_number'] ?? null,
             ]);
         }
     }
@@ -244,7 +246,12 @@ class Provider
         foreach ($linkRows as $l) {
             $name = $l['legal_entity_name'] ?? ('#' . ($l['legal_entity_id'] ?? ''));
             $manager = $l['manager_name'] ?? null;
-            $parts[] = $manager ? "{$name} (менеджер: {$manager})" : "{$name} (без менеджера)";
+            $contract = $l['contract_number'] ?? null;
+            $suffix = $manager ? "менеджер: {$manager}" : 'без менеджера';
+            if ($contract) {
+                $suffix .= "; № договора: {$contract}";
+            }
+            $parts[] = "{$name} ({$suffix})";
         }
         return implode('; ', $parts);
     }

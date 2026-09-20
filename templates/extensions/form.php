@@ -69,10 +69,6 @@ $action = $isEdit ? '/extensions/' . (int)$extension['id'] . '/edit' : '/extensi
                     <?php endforeach; ?>
                 </select>
             </div>
-            <div class="col-md-6">
-                <label class="form-label">Контекст диалплана</label>
-                <input type="text" name="context" class="form-control" value="<?= View::e($extension['context'] ?? '') ?>" placeholder="internal">
-            </div>
 
             <div class="col-md-4 external-field" id="legal-entity-field">
                 <label class="form-label">Юрлицо</label>
@@ -111,6 +107,20 @@ $action = $isEdit ? '/extensions/' . (int)$extension['id'] . '/edit' : '/extensi
                     <?php endforeach; ?>
                 </select>
             </div>
+            <div class="col-md-6">
+                <label class="form-label">Контекст диалплана</label>
+                <input type="text" name="context" class="form-control" value="<?= View::e($extension['context'] ?? '') ?>" placeholder="internal">
+            </div>
+
+            <div class="col-md-6 external-field calltracking-field" id="calltracking-target-field">
+                <label class="form-label">Цель</label>
+                <select name="calltracking_target_id" id="calltracking-target-select" class="form-select">
+                    <option value="">— не выбрана —</option>
+                    <?php foreach ($calltrackingTargets as $ct): ?>
+                        <option value="<?= (int)$ct['id'] ?>" <?= (int)($extension['calltracking_target_id'] ?? 0) === (int)$ct['id'] ? 'selected' : '' ?>><?= View::e(($ct['department_name'] ?? '') !== '' ? $ct['department_name'] . ' — ' . $ct['target'] : $ct['target']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
 
             <div class="col-12">
                 <label class="form-label">Описание</label>
@@ -134,6 +144,14 @@ $action = $isEdit ? '/extensions/' . (int)$extension['id'] . '/edit' : '/extensi
     var typeInternalSelect = document.getElementById('type-internal-select');
     var typeExternalSelect = document.getElementById('type-external-select');
 
+    var calltrackingField = document.getElementById('calltracking-target-field');
+
+    function toggleCalltrackingField() {
+        var isExternal = categorySelect.value === 'external';
+        var isCalltracking = isExternal && typeExternalSelect.value === 'calltracking';
+        calltrackingField.style.display = isCalltracking ? '' : 'none';
+    }
+
     function toggleByCategory() {
         var isExternal = categorySelect.value === 'external';
 
@@ -144,9 +162,12 @@ $action = $isEdit ? '/extensions/' . (int)$extension['id'] . '/edit' : '/extensi
         typeExternalField.style.display = isExternal ? '' : 'none';
         typeInternalSelect.disabled = isExternal;
         typeExternalSelect.disabled = !isExternal;
+
+        toggleCalltrackingField();
     }
 
     categorySelect.addEventListener('change', toggleByCategory);
+    typeExternalSelect.addEventListener('change', toggleCalltrackingField);
     toggleByCategory();
 
     var legalEntitySelect = document.getElementById('legal-entity-select');

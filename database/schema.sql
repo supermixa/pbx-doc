@@ -159,11 +159,13 @@ CREATE TABLE IF NOT EXISTS legal_entities (
 
 -- ----------------------------------------------------------------------------
 -- Провайдеры (справочник)
+-- № договора теперь привязан не к провайдеру целиком, а к конкретной связи
+-- "провайдер — юрлицо" (provider_legal_entities.contract_number) — у одного
+-- провайдера может быть разный договор на каждое обслуживаемое юрлицо.
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS providers (
     id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     name            VARCHAR(190)        NOT NULL,
-    contract_number VARCHAR(100)        NULL,
     support_phone   VARCHAR(50)         NULL,
     note            TEXT                NULL,
     created_by      INT UNSIGNED        NULL,
@@ -187,11 +189,12 @@ CREATE TABLE IF NOT EXISTS provider_managers (
     CONSTRAINT fk_provider_managers_provider FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Привязка провайдера к обслуживаемым юрлицам + ответственный менеджер
+-- Привязка провайдера к обслуживаемым юрлицам + ответственный менеджер + № договора
 CREATE TABLE IF NOT EXISTS provider_legal_entities (
     id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     provider_id     INT UNSIGNED        NOT NULL,
     legal_entity_id INT UNSIGNED        NOT NULL,
+    contract_number VARCHAR(100)        NULL,
     manager_id      INT UNSIGNED        NULL,
     KEY idx_ple_provider (provider_id),
     KEY idx_ple_legal_entity (legal_entity_id),
@@ -202,31 +205,51 @@ CREATE TABLE IF NOT EXISTS provider_legal_entities (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------------------------------------------------------
+-- Calltracking (справочник целей звонков по подразделениям)
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS calltracking_targets (
+    id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    department_id   INT UNSIGNED        NOT NULL,
+    target          VARCHAR(190)        NOT NULL,
+    created_by      INT UNSIGNED        NULL,
+    updated_by      INT UNSIGNED        NULL,
+    created_at      DATETIME            NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      DATETIME            NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    KEY idx_calltracking_targets_department (department_id),
+    KEY idx_calltracking_targets_target (target),
+    CONSTRAINT fk_calltracking_targets_department FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE CASCADE,
+    CONSTRAINT fk_calltracking_targets_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+    CONSTRAINT fk_calltracking_targets_updated_by FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ----------------------------------------------------------------------------
 -- Номера / экстеншены
 -- category: internal (внутренний) | external (внешний)
 -- type для internal: internal | queue | ivr | other
 -- type для external: did_city | did_mobile | calltracking | other
 -- department_id заполняется только для внутренних номеров
 -- legal_entity_id / provider_id / trunk_id заполняются только для внешних номеров
+-- calltracking_target_id заполняется только когда type = calltracking
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS extensions (
-    id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    number          VARCHAR(50)         NOT NULL,
-    category        VARCHAR(20)         NOT NULL DEFAULT 'internal',
-    type            VARCHAR(20)         NOT NULL DEFAULT 'internal',
-    owner           VARCHAR(150)        NULL,
-    context         VARCHAR(100)        NULL,
-    scenario_id     INT UNSIGNED        NULL,
-    department_id   INT UNSIGNED        NULL,
-    legal_entity_id INT UNSIGNED        NULL,
-    provider_id     INT UNSIGNED        NULL,
-    trunk_id        INT UNSIGNED        NULL,
-    status          VARCHAR(20)         NOT NULL DEFAULT 'active',
-    description     TEXT                NULL,
-    created_by      INT UNSIGNED        NULL,
-    updated_by      INT UNSIGNED        NULL,
-    created_at      DATETIME            NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at      DATETIME            NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    id                      INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    number                  VARCHAR(50)         NOT NULL,
+    category                VARCHAR(20)         NOT NULL DEFAULT 'internal',
+    type                    VARCHAR(20)         NOT NULL DEFAULT 'internal',
+    owner                   VARCHAR(150)        NULL,
+    context                 VARCHAR(100)        NULL,
+    scenario_id             INT UNSIGNED        NULL,
+    department_id           INT UNSIGNED        NULL,
+    legal_entity_id         INT UNSIGNED        NULL,
+    provider_id             INT UNSIGNED        NULL,
+    trunk_id                INT UNSIGNED        NULL,
+    calltracking_target_id  INT UNSIGNED        NULL,
+    status                  VARCHAR(20)         NOT NULL DEFAULT 'active',
+    description             TEXT                NULL,
+    created_by              INT UNSIGNED        NULL,
+    updated_by              INT UNSIGNED        NULL,
+    created_at              DATETIME            NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at              DATETIME            NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     KEY idx_extensions_number (number),
     KEY idx_extensions_type (type),
     KEY idx_extensions_category (category),
@@ -235,6 +258,7 @@ CREATE TABLE IF NOT EXISTS extensions (
     CONSTRAINT fk_extensions_legal_entity FOREIGN KEY (legal_entity_id) REFERENCES legal_entities(id) ON DELETE SET NULL,
     CONSTRAINT fk_extensions_provider FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE SET NULL,
     CONSTRAINT fk_extensions_trunk FOREIGN KEY (trunk_id) REFERENCES trunks(id) ON DELETE SET NULL,
+    CONSTRAINT fk_extensions_calltracking_target FOREIGN KEY (calltracking_target_id) REFERENCES calltracking_targets(id) ON DELETE SET NULL,
     CONSTRAINT fk_extensions_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
     CONSTRAINT fk_extensions_updated_by FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -242,7 +266,8 @@ CREATE TABLE IF NOT EXISTS extensions (
 -- ----------------------------------------------------------------------------
 -- Журнал аудита — кто, что и когда изменил
 -- entity_type: trunk | route | scenario | extension | user | department |
---              equipment_type | equipment | legal_entity | provider
+--              equipment_type | equipment | legal_entity | provider |
+--              calltracking_target
 -- action:      create | update | delete
 -- changes:     JSON вида {"field": {"old": ..., "new": ...}, ...}
 -- ----------------------------------------------------------------------------

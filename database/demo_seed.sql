@@ -50,22 +50,29 @@ VALUES
   ('ООО "Ромашка"', '7701234567', 1, 1),
   ('ИП Иванов И.И.', '772812345678', 1, 1);
 
-INSERT INTO providers (name, contract_number, support_phone, note, created_by, updated_by)
+INSERT INTO providers (name, support_phone, note, created_by, updated_by)
 VALUES
-  ('Билайн Бизнес', '№ БИЗ-2024-118', '8-800-700-8000', 'Основной поставщик городских номеров.', 1, 1);
+  ('Билайн Бизнес', '8-800-700-8000', 'Основной поставщик городских номеров.', 1, 1);
 
 INSERT INTO provider_managers (provider_id, name, phone, sort_order)
 VALUES
   (1, 'Смирнова А.А.', '+7 900 111-22-33', 0),
   (1, 'Кузнецов П.П.', '+7 900 444-55-66', 1);
 
-INSERT INTO provider_legal_entities (provider_id, legal_entity_id, manager_id)
+INSERT INTO provider_legal_entities (provider_id, legal_entity_id, manager_id, contract_number)
 VALUES
-  (1, 1, 1);
+  (1, 1, 1, '№ БИЗ-2024-118');
 
-INSERT INTO extensions (number, category, type, owner, context, scenario_id, department_id, legal_entity_id, provider_id, trunk_id, status, description, created_by, updated_by)
+INSERT INTO calltracking_targets (department_id, target, created_by, updated_by)
 VALUES
-  ('100', 'internal', 'internal', 'Стойка ресепшн', 'internal', NULL, NULL, NULL, NULL, NULL, 'active', 'Основной номер администратора офиса.', 1, 1),
-  ('101', 'internal', 'internal', 'Иванов И.И. (продажи)', 'internal', NULL, 1, NULL, NULL, NULL, 'active', NULL, 1, 1),
-  ('78121234567', 'external', 'did_city', 'Компания — общий номер', 'from-trunk-beeline', 1, NULL, 1, 1, 1, 'active',
-   'Городской номер, входящие идут на IVR.', 1, 1);
+  (1, 'Реклама Яндекс.Директ', 1, 1),
+  (1, 'Реклама ВКонтакте', 1, 1);
+
+INSERT INTO extensions (number, category, type, owner, context, scenario_id, department_id, legal_entity_id, provider_id, trunk_id, calltracking_target_id, status, description, created_by, updated_by)
+VALUES
+  ('100', 'internal', 'internal', 'Стойка ресепшн', 'internal', NULL, NULL, NULL, NULL, NULL, NULL, 'active', 'Основной номер администратора офиса.', 1, 1),
+  ('101', 'internal', 'internal', 'Иванов И.И. (продажи)', 'internal', NULL, 1, NULL, NULL, NULL, NULL, 'active', NULL, 1, 1),
+  ('78121234567', 'external', 'did_city', 'Компания — общий номер', 'from-trunk-beeline', 1, NULL, 1, 1, 1, NULL, 'active',
+   'Городской номер, входящие идут на IVR.', 1, 1),
+  ('78121234599', 'external', 'calltracking', NULL, 'from-trunk-beeline', NULL, NULL, 1, 1, 1, 1, 'active',
+   'Отслеживающий номер для рекламной кампании в Яндекс.Директ.', 1, 1);

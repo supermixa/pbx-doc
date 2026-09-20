@@ -227,7 +227,6 @@ class ProviderController
     {
         $v = new Validator($input);
         $v->required('name', 'Наименование')->maxLength('name', 190, 'Наименование')
-            ->maxLength('contract_number', 100, '№ договора')
             ->maxLength('support_phone', 50, 'Телефон ТП');
 
         $managerSlots = [];
@@ -247,15 +246,24 @@ class ProviderController
 
         $legalEntityIdsRaw = $input['legal_entity_id'] ?? [];
         $managerPositionsRaw = $input['legal_entity_manager'] ?? [];
+        $contractNumbersRaw = $input['legal_entity_contract_number'] ?? [];
         $legalEntityRowsRaw = [];
         $seen = [];
         foreach ($legalEntityIdsRaw as $i => $rawId) {
             $legalEntityId = trim((string)$rawId);
             $managerPosition = trim((string)($managerPositionsRaw[$i] ?? ''));
+            $contractNumber = trim((string)($contractNumbersRaw[$i] ?? ''));
             if ($legalEntityId === '') {
                 continue;
             }
-            $legalEntityRowsRaw[] = ['legal_entity_id' => $legalEntityId, 'manager_position' => $managerPosition];
+            if (mb_strlen($contractNumber) > 100) {
+                $v->addError('legal_entity_contract_number_' . $i, '№ договора не должен превышать 100 символов');
+            }
+            $legalEntityRowsRaw[] = [
+                'legal_entity_id' => $legalEntityId,
+                'manager_position' => $managerPosition,
+                'contract_number' => $contractNumber,
+            ];
             if (isset($seen[$legalEntityId])) {
                 $v->addError('legal_entities', 'Одно и то же юрлицо привязано к провайдеру более одного раза');
             }
@@ -264,7 +272,6 @@ class ProviderController
 
         $data = [
             'name' => $v->get('name'),
-            'contract_number' => $v->get('contract_number'),
             'support_phone' => $v->get('support_phone'),
             'note' => $v->get('note'),
         ];
@@ -300,7 +307,12 @@ class ProviderController
             $seen[$legalEntityId] = true;
             $pos = $row['manager_position'];
             $managerId = ($pos !== '' && isset($managerIdBySortOrder[(int)$pos])) ? $managerIdBySortOrder[(int)$pos] : null;
-            $links[] = ['legal_entity_id' => $legalEntityId, 'manager_id' => $managerId];
+            $contractNumber = trim((string)($row['contract_number'] ?? ''));
+            $links[] = [
+                'legal_entity_id' => $legalEntityId,
+                'manager_id' => $managerId,
+                'contract_number' => $contractNumber !== '' ? $contractNumber : null,
+            ];
         }
         return $links;
     }
@@ -342,7 +354,11 @@ class ProviderController
                     break;
                 }
             }
-            $rows[] = ['legal_entity_id' => (string)$l['legal_entity_id'], 'manager_position' => $position];
+            $rows[] = [
+                'legal_entity_id' => (string)$l['legal_entity_id'],
+                'manager_position' => $position,
+                'contract_number' => (string)($l['contract_number'] ?? ''),
+            ];
         }
         return $rows;
     }

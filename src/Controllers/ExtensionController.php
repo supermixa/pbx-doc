@@ -9,6 +9,7 @@ use App\Core\Flash;
 use App\Core\Validator;
 use App\Core\View;
 use App\Models\AuditLog;
+use App\Models\CalltrackingTarget;
 use App\Models\Department;
 use App\Models\ExtensionNumber;
 use App\Models\LegalEntity;
@@ -167,6 +168,7 @@ class ExtensionController
             'legalEntities' => LegalEntity::options(),
             'providers' => Provider::optionsWithLegalEntities(),
             'trunks' => Trunk::options(),
+            'calltrackingTargets' => CalltrackingTarget::all(),
         ];
     }
 
@@ -203,6 +205,11 @@ class ExtensionController
         $trunkId = $input['trunk_id'] ?? '';
         $trunkId = ($trunkId === '' || $trunkId === null) ? null : (int)$trunkId;
 
+        $calltrackingTargetId = $input['calltracking_target_id'] ?? '';
+        $calltrackingTargetId = ($calltrackingTargetId === '' || $calltrackingTargetId === null) ? null : (int)$calltrackingTargetId;
+
+        $type = $v->get('type', $defaultType) ?: $defaultType;
+
         // Поля привязаны к соответствующей категории — если категория не та, значение не сохраняем
         if ($category !== 'internal') {
             $departmentId = null;
@@ -212,11 +219,15 @@ class ExtensionController
             $providerId = null;
             $trunkId = null;
         }
+        // Цель Calltracking имеет смысл только для внешних номеров с типом calltracking
+        if ($category !== 'external' || $type !== 'calltracking') {
+            $calltrackingTargetId = null;
+        }
 
         $data = [
             'number' => $v->get('number'),
             'category' => $category,
-            'type' => $v->get('type', $defaultType) ?: $defaultType,
+            'type' => $type,
             'owner' => $v->get('owner'),
             'context' => $v->get('context'),
             'scenario_id' => $scenarioId,
@@ -224,6 +235,7 @@ class ExtensionController
             'legal_entity_id' => $legalEntityId,
             'provider_id' => $providerId,
             'trunk_id' => $trunkId,
+            'calltracking_target_id' => $calltrackingTargetId,
             'status' => $v->get('status', 'active') ?: 'active',
             'description' => $v->get('description'),
         ];

@@ -9,6 +9,7 @@ use App\Core\Flash;
 use App\Core\Validator;
 use App\Core\View;
 use App\Models\AuditLog;
+use App\Models\ExtensionNumber;
 use App\Models\Trunk;
 
 class TrunkController
@@ -40,6 +41,7 @@ class TrunkController
         View::render('trunks/show', [
             'title' => $trunk['name'],
             'trunk' => $trunk,
+            'extensions' => ExtensionNumber::forTrunk((int)$trunk['id']),
             'history' => AuditLog::forEntity('trunk', (int)$trunk['id']),
         ]);
     }

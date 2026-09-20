@@ -26,7 +26,6 @@ use App\Core\View;
         <div class="card mb-3">
             <div class="card-body">
                 <dl class="row mb-0">
-                    <dt class="col-sm-4">№ договора</dt><dd class="col-sm-8"><?= View::e($provider['contract_number'] ?: '—') ?></dd>
                     <dt class="col-sm-4">Телефон ТП</dt><dd class="col-sm-8"><?= View::e($provider['support_phone'] ?: '—') ?></dd>
                     <dt class="col-sm-4">Примечание</dt><dd class="col-sm-8" style="white-space: pre-wrap;"><?= View::e($provider['note'] ?: '—') ?></dd>
                 </dl>
@@ -63,8 +62,11 @@ use App\Core\View;
                         <?php foreach ($legalEntityLinks as $l): ?>
                             <li class="list-group-item d-flex justify-content-between align-items-center flex-wrap gap-2">
                                 <a href="/legal-entities/<?= (int)$l['legal_entity_id'] ?>"><?= View::e($l['legal_entity_name']) ?></a>
-                                <span class="text-muted small">
+                                <span class="text-muted small text-end">
                                     <?= !empty($l['manager_name']) ? View::e('Менеджер: ' . $l['manager_name'] . ($l['manager_phone'] ? ' (' . $l['manager_phone'] . ')' : '')) : 'Менеджер не назначен' ?>
+                                    <?php if (!empty($l['contract_number'])): ?>
+                                        <br>№ договора: <?= View::e($l['contract_number']) ?>
+                                    <?php endif; ?>
                                 </span>
                             </li>
                         <?php endforeach; ?>

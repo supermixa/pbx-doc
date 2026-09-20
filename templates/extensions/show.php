@@ -57,14 +57,22 @@ use App\Core\View;
                                 <a href="/trunks/<?= (int)$extension['trunk_id'] ?>"><?= View::e($extension['trunk_name']) ?></a>
                             <?php else: ?>—<?php endif; ?>
                         </dd>
+                        <?php if ($extension['type'] === 'calltracking'): ?>
+                            <dt class="col-sm-4">Цель</dt>
+                            <dd class="col-sm-8">
+                                <?php if (!empty($extension['calltracking_target_id'])): ?>
+                                    <a href="/calltracking/<?= (int)$extension['calltracking_target_id'] ?>"><?= View::e($extension['calltracking_target_name']) ?></a>
+                                <?php else: ?>—<?php endif; ?>
+                            </dd>
+                        <?php endif; ?>
                     <?php endif; ?>
-                    <dt class="col-sm-4">Контекст</dt><dd class="col-sm-8"><?= View::e($extension['context'] ?: '—') ?></dd>
                     <dt class="col-sm-4">Сценарий</dt>
                     <dd class="col-sm-8">
                         <?php if (!empty($extension['scenario_id'])): ?>
                             <a href="/scenarios/<?= (int)$extension['scenario_id'] ?>"><?= View::e($extension['scenario_name']) ?></a>
                         <?php else: ?>—<?php endif; ?>
                     </dd>
+                    <dt class="col-sm-4">Контекст</dt><dd class="col-sm-8"><?= View::e($extension['context'] ?: '—') ?></dd>
                     <dt class="col-sm-4">Статус</dt>
                     <dd class="col-sm-8"><span class="badge <?= $extension['status'] === 'active' ? 'text-bg-success' : 'text-bg-secondary' ?>"><?= View::e(Labels::statusLabel($extension['status'])) ?></span></dd>
                     <dt class="col-sm-4">Описание</dt><dd class="col-sm-8" style="white-space: pre-wrap;"><?= View::e($extension['description'] ?: '—') ?></dd>
