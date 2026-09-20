@@ -9,6 +9,7 @@ use App\Core\Flash;
 use App\Core\Validator;
 use App\Core\View;
 use App\Models\AuditLog;
+use App\Models\Department;
 use App\Models\ExtensionNumber;
 use App\Models\Scenario;
 
@@ -20,10 +21,14 @@ class ExtensionController
             return;
         }
         $search = trim($_GET['q'] ?? '');
+        $category = trim($_GET['category'] ?? '');
         View::render('extensions/index', [
             'title' => 'Номера',
-            'extensions' => ExtensionNumber::all($search),
+            'extensions' => ExtensionNumber::all($search, $category),
             'search' => $search,
+            'category' => $category,
+            'countInternal' => ExtensionNumber::countByCategory('internal'),
+            'countExternal' => ExtensionNumber::countByCategory('external'),
         ]);
     }
 
@@ -54,6 +59,7 @@ class ExtensionController
             'title' => 'Новый номер',
             'extension' => null,
             'scenarios' => Scenario::options(),
+            'departments' => Department::options(),
             'errors' => [],
         ]);
     }
@@ -71,6 +77,7 @@ class ExtensionController
                 'title' => 'Новый номер',
                 'extension' => $_POST,
                 'scenarios' => Scenario::options(),
+                'departments' => Department::options(),
                 'errors' => $validator->errors(),
             ]);
             return;
@@ -99,6 +106,7 @@ class ExtensionController
             'title' => 'Редактирование номера',
             'extension' => $extension,
             'scenarios' => Scenario::options(),
+            'departments' => Department::options(),
             'errors' => [],
         ]);
     }
@@ -124,6 +132,7 @@ class ExtensionController
                 'title' => 'Редактирование номера',
                 'extension' => array_merge($old, $_POST, ['id' => $id]),
                 'scenarios' => Scenario::options(),
+                'departments' => Department::options(),
                 'errors' => $validator->errors(),
             ]);
             return;
@@ -159,6 +168,8 @@ class ExtensionController
         $v = new Validator($input);
         $v->required('number', 'Номер')
             ->maxLength('number', 50, 'Номер')
+            ->required('category', 'Категория')
+            ->in('category', ExtensionNumber::CATEGORIES, 'Категория')
             ->required('type', 'Тип')
             ->in('type', ExtensionNumber::TYPES, 'Тип')
             ->maxLength('owner', 150, 'Владелец')
@@ -168,12 +179,17 @@ class ExtensionController
         $scenarioId = $input['scenario_id'] ?? '';
         $scenarioId = ($scenarioId === '' || $scenarioId === null) ? null : (int)$scenarioId;
 
+        $departmentId = $input['department_id'] ?? '';
+        $departmentId = ($departmentId === '' || $departmentId === null) ? null : (int)$departmentId;
+
         $data = [
             'number' => $v->get('number'),
+            'category' => $v->get('category', 'internal'),
             'type' => $v->get('type', 'internal'),
             'owner' => $v->get('owner'),
             'context' => $v->get('context'),
             'scenario_id' => $scenarioId,
+            'department_id' => $departmentId,
             'status' => $v->get('status', 'active') ?: 'active',
             'description' => $v->get('description'),
         ];

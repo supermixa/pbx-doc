@@ -5,6 +5,7 @@ namespace App\Controllers;
 use App\Core\Auth;
 use App\Core\View;
 use App\Models\AuditLog;
+use App\Models\Equipment;
 use App\Models\ExtensionNumber;
 use App\Models\RouteEntity;
 use App\Models\Scenario;
@@ -25,6 +26,7 @@ class DashboardController
                 'routes' => RouteEntity::count(),
                 'scenarios' => Scenario::count(),
                 'extensions' => ExtensionNumber::count(),
+                'equipment' => Equipment::count(),
             ],
             'recent' => AuditLog::recent(15),
         ]);

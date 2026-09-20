@@ -86,15 +86,74 @@ CREATE TABLE IF NOT EXISTS routes (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------------------------------------------------------
+-- Подразделения (справочник для внутренних номеров)
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS departments (
+    id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name            VARCHAR(150)        NOT NULL,
+    description     TEXT                NULL,
+    created_by      INT UNSIGNED        NULL,
+    updated_by      INT UNSIGNED        NULL,
+    created_at      DATETIME            NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      DATETIME            NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    KEY idx_departments_name (name),
+    CONSTRAINT fk_departments_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+    CONSTRAINT fk_departments_updated_by FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ----------------------------------------------------------------------------
+-- Типы оборудования (вложенный справочник: каталог моделей/брендов)
+-- category: ip_phone | softphone | dect_base | gateway
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS equipment_types (
+    id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    category        VARCHAR(20)         NOT NULL DEFAULT 'ip_phone',
+    name            VARCHAR(150)        NOT NULL,
+    model           VARCHAR(150)        NULL,
+    brand           VARCHAR(150)        NULL,
+    created_by      INT UNSIGNED        NULL,
+    updated_by      INT UNSIGNED        NULL,
+    created_at      DATETIME            NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      DATETIME            NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    KEY idx_equipment_types_category (category),
+    KEY idx_equipment_types_name (name),
+    CONSTRAINT fk_equipment_types_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+    CONSTRAINT fk_equipment_types_updated_by FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ----------------------------------------------------------------------------
+-- Оборудование (шлюзы, базовые станции IP DECT, телефоны и т.п.)
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS equipment (
+    id                  INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    equipment_type_id  INT UNSIGNED        NULL,
+    location            VARCHAR(190)        NULL,
+    ip_address          VARCHAR(50)         NULL,
+    description         TEXT                NULL,
+    created_by          INT UNSIGNED        NULL,
+    updated_by          INT UNSIGNED        NULL,
+    created_at          DATETIME            NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at          DATETIME            NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    KEY idx_equipment_location (location),
+    CONSTRAINT fk_equipment_type FOREIGN KEY (equipment_type_id) REFERENCES equipment_types(id) ON DELETE SET NULL,
+    CONSTRAINT fk_equipment_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+    CONSTRAINT fk_equipment_updated_by FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ----------------------------------------------------------------------------
 -- Номера / экстеншены
+-- category: internal (внутренний) | external (внешний)
+-- department_id заполняется только для внутренних номеров
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS extensions (
     id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     number          VARCHAR(50)         NOT NULL,
+    category        VARCHAR(20)         NOT NULL DEFAULT 'internal',
     type            VARCHAR(20)         NOT NULL DEFAULT 'internal',
     owner           VARCHAR(150)        NULL,
     context         VARCHAR(100)        NULL,
     scenario_id     INT UNSIGNED        NULL,
+    department_id   INT UNSIGNED        NULL,
     status          VARCHAR(20)         NOT NULL DEFAULT 'active',
     description     TEXT                NULL,
     created_by      INT UNSIGNED        NULL,
@@ -103,14 +162,16 @@ CREATE TABLE IF NOT EXISTS extensions (
     updated_at      DATETIME            NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     KEY idx_extensions_number (number),
     KEY idx_extensions_type (type),
+    KEY idx_extensions_category (category),
     CONSTRAINT fk_extensions_scenario FOREIGN KEY (scenario_id) REFERENCES scenarios(id) ON DELETE SET NULL,
+    CONSTRAINT fk_extensions_department FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE SET NULL,
     CONSTRAINT fk_extensions_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
     CONSTRAINT fk_extensions_updated_by FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------------------------------------------------------
 -- Журнал аудита — кто, что и когда изменил
--- entity_type: trunk | route | scenario | extension | user
+-- entity_type: trunk | route | scenario | extension | user | department | equipment_type | equipment
 -- action:      create | update | delete
 -- changes:     JSON вида {"field": {"old": ..., "new": ...}, ...}
 -- ----------------------------------------------------------------------------

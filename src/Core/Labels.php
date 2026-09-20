@@ -26,6 +26,9 @@ class Labels
             'scenario' => 'Сценарий',
             'extension' => 'Номер',
             'user' => 'Пользователь',
+            'department' => 'Подразделение',
+            'equipment' => 'Оборудование',
+            'equipment_type' => 'Тип оборудования',
             default => $type,
         };
     }
@@ -38,6 +41,9 @@ class Labels
             'scenario' => '/scenarios/' . $id,
             'extension' => '/extensions/' . $id,
             'user' => '/users/' . $id . '/edit',
+            'department' => '/departments/' . $id,
+            'equipment' => '/equipment/' . $id,
+            'equipment_type' => '/equipment-types/' . $id,
             default => '#',
         };
     }
@@ -81,6 +87,13 @@ class Labels
         'role' => 'Роль',
         'is_active' => 'Активен',
         'password_hash' => 'Пароль',
+        'category' => 'Категория',
+        'department_id' => 'Подразделение',
+        'equipment_type_id' => 'Тип оборудования',
+        'location' => 'Расположение',
+        'ip_address' => 'IP-адрес',
+        'model' => 'Модель',
+        'brand' => 'Бренд',
     ];
 
     public static function field(string $field): string
@@ -118,6 +131,26 @@ class Labels
         };
     }
 
+    public static function extensionCategoryLabel(?string $category): string
+    {
+        return match ($category) {
+            'internal' => 'Внутренний',
+            'external' => 'Внешний',
+            default => (string)$category,
+        };
+    }
+
+    public static function equipmentCategoryLabel(?string $category): string
+    {
+        return match ($category) {
+            'ip_phone' => 'IP-телефон',
+            'softphone' => 'SoftPhone',
+            'dect_base' => 'IP Dect БС',
+            'gateway' => 'Шлюз',
+            default => (string)$category,
+        };
+    }
+
     /** Читаемое представление значения поля в истории изменений */
     public static function formatFieldValue(string $entityType, string $field, $value): string
     {
@@ -141,6 +174,12 @@ class Labels
         }
         if ($field === 'type' && $entityType === 'extension') {
             return self::extensionTypeLabel((string)$value);
+        }
+        if ($field === 'category' && $entityType === 'extension') {
+            return self::extensionCategoryLabel((string)$value);
+        }
+        if ($field === 'category' && $entityType === 'equipment_type') {
+            return self::equipmentCategoryLabel((string)$value);
         }
         return (string)$value;
     }

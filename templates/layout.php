@@ -43,6 +43,14 @@ function nav_active(string $path): string
                 <li class="nav-item"><a class="nav-link<?= nav_active('/routes') ?>" href="/routes">Маршруты</a></li>
                 <li class="nav-item"><a class="nav-link<?= nav_active('/scenarios') ?>" href="/scenarios">Сценарии</a></li>
                 <li class="nav-item"><a class="nav-link<?= nav_active('/extensions') ?>" href="/extensions">Номера</a></li>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle<?= (nav_active('/departments') || nav_active('/equipment')) ? ' active' : '' ?>" href="#" role="button" data-bs-toggle="dropdown">Справочники</a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="/departments">Подразделения</a></li>
+                        <li><a class="dropdown-item" href="/equipment">Оборудование</a></li>
+                        <li><a class="dropdown-item" href="/equipment-types">Типы оборудования</a></li>
+                    </ul>
+                </li>
                 <?php if (Auth::isAdmin()): ?>
                 <li class="nav-item"><a class="nav-link<?= nav_active('/users') ?>" href="/users">Пользователи</a></li>
                 <?php endif; ?>

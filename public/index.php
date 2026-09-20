@@ -16,6 +16,9 @@ spl_autoload_register(function (string $class): void {
 
 use App\Controllers\AuthController;
 use App\Controllers\DashboardController;
+use App\Controllers\DepartmentController;
+use App\Controllers\EquipmentController;
+use App\Controllers\EquipmentTypeController;
 use App\Controllers\ExtensionController;
 use App\Controllers\RouteController;
 use App\Controllers\ScenarioController;
@@ -102,6 +105,33 @@ $router->get('/extensions/{id}/edit', fn($p) => (new ExtensionController())->edi
 $router->post('/extensions/{id}/edit', fn($p) => (new ExtensionController())->update($p));
 $router->post('/extensions/{id}/delete', fn($p) => (new ExtensionController())->destroy($p));
 $router->get('/extensions/{id}', fn($p) => (new ExtensionController())->show($p));
+
+// ---- Подразделения ------------------------------------------------------
+$router->get('/departments', fn() => (new DepartmentController())->index());
+$router->get('/departments/create', fn() => (new DepartmentController())->create());
+$router->post('/departments', fn() => (new DepartmentController())->store());
+$router->get('/departments/{id}/edit', fn($p) => (new DepartmentController())->edit($p));
+$router->post('/departments/{id}/edit', fn($p) => (new DepartmentController())->update($p));
+$router->post('/departments/{id}/delete', fn($p) => (new DepartmentController())->destroy($p));
+$router->get('/departments/{id}', fn($p) => (new DepartmentController())->show($p));
+
+// ---- Типы оборудования ---------------------------------------------------
+$router->get('/equipment-types', fn() => (new EquipmentTypeController())->index());
+$router->get('/equipment-types/create', fn() => (new EquipmentTypeController())->create());
+$router->post('/equipment-types', fn() => (new EquipmentTypeController())->store());
+$router->get('/equipment-types/{id}/edit', fn($p) => (new EquipmentTypeController())->edit($p));
+$router->post('/equipment-types/{id}/edit', fn($p) => (new EquipmentTypeController())->update($p));
+$router->post('/equipment-types/{id}/delete', fn($p) => (new EquipmentTypeController())->destroy($p));
+$router->get('/equipment-types/{id}', fn($p) => (new EquipmentTypeController())->show($p));
+
+// ---- Оборудование ---------------------------------------------------------
+$router->get('/equipment', fn() => (new EquipmentController())->index());
+$router->get('/equipment/create', fn() => (new EquipmentController())->create());
+$router->post('/equipment', fn() => (new EquipmentController())->store());
+$router->get('/equipment/{id}/edit', fn($p) => (new EquipmentController())->edit($p));
+$router->post('/equipment/{id}/edit', fn($p) => (new EquipmentController())->update($p));
+$router->post('/equipment/{id}/delete', fn($p) => (new EquipmentController())->destroy($p));
+$router->get('/equipment/{id}', fn($p) => (new EquipmentController())->show($p));
 
 // ---- Пользователи (только администратор) -------------------------------
 $router->get('/users', fn() => (new UserController())->index());

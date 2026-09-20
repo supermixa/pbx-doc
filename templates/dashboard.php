@@ -39,6 +39,15 @@ use App\Core\View;
             </div>
         </div>
     </div>
+    <div class="col-6 col-md-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="text-muted small">Оборудование</div>
+                <div class="stat-number"><?= (int)$counts['equipment'] ?></div>
+                <a href="/equipment" class="stretched-link small">Перейти →</a>
+            </div>
+        </div>
+    </div>
 </div>
 
 <div class="card">

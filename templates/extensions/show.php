@@ -27,8 +27,16 @@ use App\Core\View;
         <div class="card mb-3">
             <div class="card-body">
                 <dl class="row mb-0">
+                    <dt class="col-sm-4">Категория</dt>
+                    <dd class="col-sm-8"><span class="badge <?= $extension['category'] === 'external' ? 'text-bg-info' : 'text-bg-light text-dark border' ?>"><?= View::e(Labels::extensionCategoryLabel($extension['category'])) ?></span></dd>
                     <dt class="col-sm-4">Тип</dt><dd class="col-sm-8"><?= View::e(Labels::extensionTypeLabel($extension['type'])) ?></dd>
                     <dt class="col-sm-4">Владелец</dt><dd class="col-sm-8"><?= View::e($extension['owner'] ?: '—') ?></dd>
+                    <dt class="col-sm-4">Подразделение</dt>
+                    <dd class="col-sm-8">
+                        <?php if (!empty($extension['department_id'])): ?>
+                            <a href="/departments/<?= (int)$extension['department_id'] ?>"><?= View::e($extension['department_name']) ?></a>
+                        <?php else: ?>—<?php endif; ?>
+                    </dd>
                     <dt class="col-sm-4">Контекст</dt><dd class="col-sm-8"><?= View::e($extension['context'] ?: '—') ?></dd>
                     <dt class="col-sm-4">Сценарий</dt>
                     <dd class="col-sm-8">

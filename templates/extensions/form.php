@@ -20,6 +20,15 @@ $action = $isEdit ? '/extensions/' . (int)$extension['id'] . '/edit' : '/extensi
                 <?php if (isset($errors['number'])): ?><div class="invalid-feedback"><?= View::e($errors['number']) ?></div><?php endif; ?>
             </div>
             <div class="col-md-4">
+                <label class="form-label">Категория *</label>
+                <select name="category" id="category-select" class="form-select <?= isset($errors['category']) ? 'is-invalid' : '' ?>">
+                    <?php foreach (ExtensionNumber::CATEGORIES as $c): ?>
+                        <option value="<?= $c ?>" <?= ($extension['category'] ?? 'internal') === $c ? 'selected' : '' ?>><?= View::e(Labels::extensionCategoryLabel($c)) ?></option>
+                    <?php endforeach; ?>
+                </select>
+                <?php if (isset($errors['category'])): ?><div class="invalid-feedback"><?= View::e($errors['category']) ?></div><?php endif; ?>
+            </div>
+            <div class="col-md-4">
                 <label class="form-label">Тип *</label>
                 <select name="type" class="form-select">
                     <?php foreach (ExtensionNumber::TYPES as $t): ?>
@@ -27,7 +36,12 @@ $action = $isEdit ? '/extensions/' . (int)$extension['id'] . '/edit' : '/extensi
                     <?php endforeach; ?>
                 </select>
             </div>
-            <div class="col-md-4">
+
+            <div class="col-md-6">
+                <label class="form-label">Владелец</label>
+                <input type="text" name="owner" class="form-control" value="<?= View::e($extension['owner'] ?? '') ?>" placeholder="Иванов И.И. / Отдел продаж">
+            </div>
+            <div class="col-md-6">
                 <label class="form-label">Статус</label>
                 <select name="status" class="form-select">
                     <?php foreach (ExtensionNumber::STATUSES as $s): ?>
@@ -36,9 +50,14 @@ $action = $isEdit ? '/extensions/' . (int)$extension['id'] . '/edit' : '/extensi
                 </select>
             </div>
 
-            <div class="col-md-6">
-                <label class="form-label">Владелец</label>
-                <input type="text" name="owner" class="form-control" value="<?= View::e($extension['owner'] ?? '') ?>" placeholder="Иванов И.И. / Отдел продаж">
+            <div class="col-md-6" id="department-field">
+                <label class="form-label">Подразделение</label>
+                <select name="department_id" class="form-select">
+                    <option value="">— не выбрано —</option>
+                    <?php foreach ($departments as $d): ?>
+                        <option value="<?= (int)$d['id'] ?>" <?= (int)($extension['department_id'] ?? 0) === (int)$d['id'] ? 'selected' : '' ?>><?= View::e($d['name']) ?></option>
+                    <?php endforeach; ?>
+                </select>
             </div>
             <div class="col-md-6">
                 <label class="form-label">Контекст диалплана</label>
@@ -66,3 +85,14 @@ $action = $isEdit ? '/extensions/' . (int)$extension['id'] . '/edit' : '/extensi
         <a href="<?= $isEdit ? '/extensions/' . (int)$extension['id'] : '/extensions' ?>" class="btn btn-outline-secondary">Отмена</a>
     </div>
 </form>
+<script>
+(function () {
+    var categorySelect = document.getElementById('category-select');
+    var departmentField = document.getElementById('department-field');
+    function toggleDepartmentField() {
+        departmentField.style.display = categorySelect.value === 'internal' ? '' : 'none';
+    }
+    categorySelect.addEventListener('change', toggleDepartmentField);
+    toggleDepartmentField();
+})();
+</script>
