@@ -19,8 +19,10 @@ class Trunk
                 LEFT JOIN users uu ON uu.id = t.updated_by';
         $params = [];
         if ($search !== '') {
-            $sql .= ' WHERE t.name LIKE :search OR t.provider LIKE :search OR t.host LIKE :search';
-            $params['search'] = "%{$search}%";
+            $sql .= ' WHERE t.name LIKE :search1 OR t.provider LIKE :search2 OR t.host LIKE :search3';
+            $params['search1'] = "%{$search}%";
+            $params['search2'] = "%{$search}%";
+            $params['search3'] = "%{$search}%";
         }
         $sql .= ' ORDER BY t.name';
         $stmt = Db::connection()->prepare($sql);

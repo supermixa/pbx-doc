@@ -16,8 +16,9 @@ class Scenario
                 LEFT JOIN users uu ON uu.id = s.updated_by';
         $params = [];
         if ($search !== '') {
-            $sql .= ' WHERE s.name LIKE :search OR s.context LIKE :search';
-            $params['search'] = "%{$search}%";
+            $sql .= ' WHERE s.name LIKE :search1 OR s.context LIKE :search2';
+            $params['search1'] = "%{$search}%";
+            $params['search2'] = "%{$search}%";
         }
         $sql .= ' ORDER BY s.name';
         $stmt = Db::connection()->prepare($sql);

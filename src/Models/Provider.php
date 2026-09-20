@@ -25,8 +25,9 @@ class Provider
                 LEFT JOIN users uu ON uu.id = p.updated_by';
         $params = [];
         if ($search !== '') {
-            $sql .= ' WHERE p.name LIKE :search OR p.contract_number LIKE :search';
-            $params['search'] = "%{$search}%";
+            $sql .= ' WHERE p.name LIKE :search1 OR p.contract_number LIKE :search2';
+            $params['search1'] = "%{$search}%";
+            $params['search2'] = "%{$search}%";
         }
         $sql .= ' ORDER BY p.name';
         $stmt = Db::connection()->prepare($sql);

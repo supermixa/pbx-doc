@@ -43,8 +43,9 @@ class ExtensionNumber
         $where = [];
         $params = [];
         if ($search !== '') {
-            $where[] = '(e.number LIKE :search OR e.owner LIKE :search)';
-            $params['search'] = "%{$search}%";
+            $where[] = '(e.number LIKE :search1 OR e.owner LIKE :search2)';
+            $params['search1'] = "%{$search}%";
+            $params['search2'] = "%{$search}%";
         }
         if (in_array($category, self::CATEGORIES, true)) {
             $where[] = 'e.category = :category';

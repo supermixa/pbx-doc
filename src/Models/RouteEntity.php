@@ -23,8 +23,9 @@ class RouteEntity
                 LEFT JOIN users uu ON uu.id = r.updated_by';
         $params = [];
         if ($search !== '') {
-            $sql .= ' WHERE r.name LIKE :search OR r.pattern LIKE :search';
-            $params['search'] = "%{$search}%";
+            $sql .= ' WHERE r.name LIKE :search1 OR r.pattern LIKE :search2';
+            $params['search1'] = "%{$search}%";
+            $params['search2'] = "%{$search}%";
         }
         $sql .= ' ORDER BY r.name';
         $stmt = Db::connection()->prepare($sql);

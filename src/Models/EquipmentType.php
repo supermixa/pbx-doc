@@ -22,8 +22,10 @@ class EquipmentType
                 LEFT JOIN users uu ON uu.id = et.updated_by';
         $params = [];
         if ($search !== '') {
-            $sql .= ' WHERE et.name LIKE :search OR et.model LIKE :search OR et.brand LIKE :search';
-            $params['search'] = "%{$search}%";
+            $sql .= ' WHERE et.name LIKE :search1 OR et.model LIKE :search2 OR et.brand LIKE :search3';
+            $params['search1'] = "%{$search}%";
+            $params['search2'] = "%{$search}%";
+            $params['search3'] = "%{$search}%";
         }
         $sql .= ' ORDER BY et.name';
         $stmt = Db::connection()->prepare($sql);

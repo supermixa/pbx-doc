@@ -16,8 +16,9 @@ class LegalEntity
                 LEFT JOIN users uu ON uu.id = le.updated_by';
         $params = [];
         if ($search !== '') {
-            $sql .= ' WHERE le.name LIKE :search OR le.inn LIKE :search';
-            $params['search'] = "%{$search}%";
+            $sql .= ' WHERE le.name LIKE :search1 OR le.inn LIKE :search2';
+            $params['search1'] = "%{$search}%";
+            $params['search2'] = "%{$search}%";
         }
         $sql .= ' ORDER BY le.name';
         $stmt = Db::connection()->prepare($sql);
