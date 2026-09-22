@@ -186,7 +186,13 @@
         if (!callerWaitSoundSelect || !mohMusicField) {
             return;
         }
-        mohMusicField.style.display = callerWaitSoundSelect.value === 'music' ? '' : 'none';
+        // "Фоновая музыка (MOH)" — поле только для Очереди (queue-only-field);
+        // без этой проверки поле оставалось видимым для любого номера
+        // (служебные, групповые, все внешние), т.к. раньше видимость решалась
+        // только значением "Что слышит абонент", без учёта типа номера.
+        var isInternal = categorySelect.value === 'internal';
+        var isQueueNow = isInternal && typeInternalSelect.value === 'queue';
+        mohMusicField.style.display = (isQueueNow && callerWaitSoundSelect.value === 'music') ? '' : 'none';
     }
 
     if (callerWaitSoundSelect) {
