@@ -38,11 +38,13 @@ if (!function_exists('extTabUrl')) {
     <?php endforeach; ?>
 </ul>
 
-<form method="get" class="mb-3">
-    <input type="hidden" name="tab" value="<?= View::e($tab) ?>">
+<form method="get" class="mb-3" id="extensions-search-form" onsubmit="return false;">
+    <input type="hidden" name="tab" id="extensions-search-tab" value="<?= View::e($tab) ?>">
     <div class="input-group" style="max-width: 400px">
-        <input type="text" name="q" class="form-control" placeholder="Поиск по номеру, владельцу" value="<?= View::e($search) ?>">
-        <button class="btn btn-outline-secondary" type="submit">Найти</button>
+        <input type="text" name="q" id="extensions-search-input" class="form-control" placeholder="Поиск по номеру, владельцу (от 2 символов)" value="<?= View::e($search) ?>" autocomplete="off">
+        <span class="input-group-text d-none" id="extensions-search-spinner">
+            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+        </span>
     </div>
 </form>
 
@@ -69,31 +71,13 @@ if (!function_exists('extTabUrl')) {
                     <?php endif; ?>
                 </tr>
             </thead>
-            <tbody>
-            <?php if (empty($extensions)): ?>
-                <tr><td colspan="<?= $isExternalTab ? 9 : 5 ?>" class="text-center text-muted py-4">Записей не найдено</td></tr>
-            <?php endif; ?>
-            <?php foreach ($extensions as $e): ?>
-                <tr style="cursor:pointer" onclick="location.href='/extensions/<?= (int)$e['id'] ?>'">
-                    <td><a href="/extensions/<?= (int)$e['id'] ?>" class="text-decoration-none fw-semibold"><?= View::e($e['number']) ?></a></td>
-                    <?php if ($isExternalTab): ?>
-                        <td><?= View::e(Labels::extensionTypeLabel($e['type'], $e['category'])) ?></td>
-                        <td><?= View::e($e['provider_name'] ?? '—') ?></td>
-                        <td><?= View::e($e['trunk_name'] ?? '—') ?></td>
-                        <td><?= View::e($e['owner'] ?: '—') ?></td>
-                        <td><?= View::e($e['department_name'] ?? '—') ?></td>
-                        <td><?= View::e($e['calltracking_target_name'] ?? '—') ?></td>
-                        <td><span class="badge <?= $e['status'] === 'active' ? 'text-bg-success' : 'text-bg-secondary' ?>"><?= View::e(Labels::statusLabel($e['status'])) ?></span></td>
-                        <td class="text-muted small"><?= View::e($e['updated_by_name'] ?? '—') ?>, <?= View::e(date('d.m.Y H:i', strtotime($e['updated_at']))) ?></td>
-                    <?php else: ?>
-                        <td><?= View::e($e['owner'] ?: '—') ?></td>
-                        <td><?= View::e($e['department_name'] ?? '—') ?></td>
-                        <td><span class="badge <?= $e['status'] === 'active' ? 'text-bg-success' : 'text-bg-secondary' ?>"><?= View::e(Labels::statusLabel($e['status'])) ?></span></td>
-                        <td class="text-muted small"><?= View::e($e['updated_by_name'] ?? '—') ?>, <?= View::e(date('d.m.Y H:i', strtotime($e['updated_at']))) ?></td>
-                    <?php endif; ?>
-                </tr>
-            <?php endforeach; ?>
+            <tbody id="extensions-rows">
+            <?php require __DIR__ . '/_rows.php'; ?>
             </tbody>
         </table>
     </div>
 </div>
+<script>
+var EXTENSIONS_TAB = <?= json_encode($tab) ?>;
+</script>
+<script src="/assets/js/extensions-index.js"></script>

@@ -20,8 +20,8 @@ $qs = $queueSettings ?? null;
         <div class="row g-3">
             <div class="col-md-4">
                 <label class="form-label">Номер *</label>
-                <input type="text" name="number" class="form-control <?= isset($errors['number']) ? 'is-invalid' : '' ?>" value="<?= View::e($extension['number'] ?? '') ?>" required>
-                <?php if (isset($errors['number'])): ?><div class="invalid-feedback"><?= View::e($errors['number']) ?></div><?php endif; ?>
+                <input type="text" name="number" id="number-input" class="form-control <?= isset($errors['number']) ? 'is-invalid' : '' ?>" value="<?= View::e($extension['number'] ?? '') ?>" required autocomplete="off">
+                <div class="invalid-feedback" id="number-duplicate-feedback"><?= isset($errors['number']) ? View::e($errors['number']) : '' ?></div>
             </div>
             <div class="col-md-4">
                 <label class="form-label">Категория *</label>

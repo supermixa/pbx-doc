@@ -104,6 +104,8 @@ $router->get('/scenarios/{id}', fn($p) => (new ScenarioController())->show($p));
 // ---- Номера -----------------------------------------------------------
 $router->get('/extensions', fn() => (new ExtensionController())->index());
 $router->get('/extensions/search-targets', fn() => (new ExtensionController())->searchTargets());
+$router->get('/extensions/check-number', fn() => (new ExtensionController())->checkNumber());
+$router->get('/extensions/search-rows', fn() => (new ExtensionController())->searchRows());
 $router->get('/extensions/create', fn() => (new ExtensionController())->create());
 $router->post('/extensions', fn() => (new ExtensionController())->store());
 $router->get('/extensions/{id}/edit', fn($p) => (new ExtensionController())->edit($p));

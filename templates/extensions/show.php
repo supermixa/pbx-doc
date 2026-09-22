@@ -79,6 +79,26 @@ use App\Core\View;
             </div>
         </div>
 
+        <?php if ($extension['category'] === 'internal' && $extension['type'] === 'internal'): ?>
+            <div class="card mb-3">
+                <div class="card-header bg-white"><strong>Состоит в очередях/группах</strong></div>
+                <div class="card-body p-0">
+                    <?php if (empty($memberships)): ?>
+                        <p class="text-muted p-3 mb-0">Не входит ни в одну очередь или группу обзвона.</p>
+                    <?php else: ?>
+                        <ul class="list-group list-group-flush">
+                            <?php foreach ($memberships as $m): ?>
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <a href="/extensions/<?= (int)$m['id'] ?>"><?= View::e($m['number']) ?></a>
+                                    <span class="badge text-bg-light text-dark border"><?= View::e(Labels::extensionTypeLabel($m['type'], 'internal')) ?></span>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    <?php endif; ?>
+                </div>
+            </div>
+        <?php endif; ?>
+
         <?php if ($extension['category'] === 'internal' && in_array($extension['type'], ['queue', 'ivr'], true)): ?>
             <?php $isQueue = $extension['type'] === 'queue'; ?>
             <div class="card mb-3">

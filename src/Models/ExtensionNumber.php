@@ -339,6 +339,27 @@ class ExtensionNumber
         return implode('; ', $parts);
     }
 
+    /**
+     * Есть ли уже номер с таким значением в этой категории (дубли внутренних
+     * номеров запрещены — иначе диалплан не сможет однозначно определить,
+     * куда направлять вызов). $excludeId — при редактировании, чтобы номер
+     * не конфликтовал сам с собой.
+     */
+    public static function findDuplicate(string $number, string $category, ?int $excludeId = null): ?array
+    {
+        $sql = 'SELECT id, number, type FROM extensions WHERE number = :number AND category = :category';
+        $params = ['number' => $number, 'category' => $category];
+        if ($excludeId !== null) {
+            $sql .= ' AND id != :exclude_id';
+            $params['exclude_id'] = $excludeId;
+        }
+        $sql .= ' LIMIT 1';
+        $stmt = Db::connection()->prepare($sql);
+        $stmt->execute($params);
+        $row = $stmt->fetch();
+        return $row ?: null;
+    }
+
     /** Счётчик для вкладок страницы /extensions. $type === null — не фильтровать по типу. */
     public static function countByCategoryAndType(string $category, ?string $type = null): int
     {

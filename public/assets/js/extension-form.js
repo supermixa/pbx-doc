@@ -425,4 +425,46 @@
                 });
         });
     });
+
+    // ------------------------------------------------------------------
+    // Живая проверка дубля номера (только для внутренних — дубли внешних
+    // не запрещены сервером, поэтому подсказку не показываем). Финальная
+    // проверка всё равно на сервере при сохранении — это только подсказка.
+    // ------------------------------------------------------------------
+    var numberInput = document.getElementById('number-input');
+    var numberFeedback = document.getElementById('number-duplicate-feedback');
+
+    if (numberInput && numberFeedback) {
+        var checkNumberRequestId = 0;
+
+        var checkNumber = debounce(function () {
+            var number = numberInput.value.trim();
+            var isInternal = categorySelect.value === 'internal';
+            if (!isInternal || number === '') {
+                numberInput.classList.remove('is-invalid');
+                numberFeedback.textContent = '';
+                return;
+            }
+            var requestId = ++checkNumberRequestId;
+            var url = '/extensions/check-number?number=' + encodeURIComponent(number) + '&category=internal';
+            if (CURRENT_EXTENSION_ID) {
+                url += '&exclude=' + CURRENT_EXTENSION_ID;
+            }
+            fetch(url).then(function (r) { return r.json(); }).then(function (data) {
+                if (requestId !== checkNumberRequestId) {
+                    return; // устаревший ответ
+                }
+                if (data.exists) {
+                    numberInput.classList.add('is-invalid');
+                    numberFeedback.textContent = data.message || 'Такой номер уже существует';
+                } else {
+                    numberInput.classList.remove('is-invalid');
+                    numberFeedback.textContent = '';
+                }
+            }).catch(function () { /* сеть недоступна — не мешаем вводу, сервер всё равно проверит при сохранении */ });
+        }, 350);
+
+        numberInput.addEventListener('input', checkNumber);
+        categorySelect.addEventListener('change', checkNumber);
+    }
 })();

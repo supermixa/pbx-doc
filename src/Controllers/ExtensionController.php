@@ -7,6 +7,7 @@ use App\Core\AuditLogger;
 use App\Core\Csrf;
 use App\Core\Db;
 use App\Core\Flash;
+use App\Core\Labels;
 use App\Core\Validator;
 use App\Core\View;
 use App\Models\AuditLog;
@@ -48,13 +49,43 @@ class ExtensionController
             $counts[$key] = ExtensionNumber::countByCategoryAndType($c, $t);
         }
 
+        // Поиск начинает фильтровать только от 2 символов (то же правило,
+        // что и в живом поиске search-rows) — короче просто показываем весь список.
+        $effectiveSearch = mb_strlen($search) >= 2 ? $search : '';
+
         View::render('extensions/index', [
             'title' => 'Номера',
-            'extensions' => ExtensionNumber::all($search, $category, $type ?? ''),
+            'extensions' => ExtensionNumber::all($effectiveSearch, $category, $type ?? ''),
             'search' => $search,
             'tab' => $tab,
             'counts' => $counts,
+            'isExternalTab' => $tab === 'external',
         ]);
+    }
+
+    /**
+     * AJAX-эндпоинт живого поиска для страницы /extensions: возвращает только
+     * строки таблицы (partial), без layout — фильтрация начинается от 2
+     * символов, короче — показывается весь список вкладки.
+     */
+    public function searchRows(): void
+    {
+        if (!Auth::check()) {
+            http_response_code(403);
+            return;
+        }
+        $search = trim($_GET['q'] ?? '');
+        $tab = $_GET['tab'] ?? 'external';
+        if (!array_key_exists($tab, self::INDEX_TABS)) {
+            $tab = 'external';
+        }
+        [$category, $type] = self::INDEX_TABS[$tab];
+        $effectiveSearch = mb_strlen($search) >= 2 ? $search : '';
+
+        View::render('extensions/_rows', [
+            'extensions' => ExtensionNumber::all($effectiveSearch, $category, $type ?? ''),
+            'isExternalTab' => $tab === 'external',
+        ], null);
     }
 
     public function show(array $params): void
@@ -73,6 +104,7 @@ class ExtensionController
             'extension' => $extension,
             'groupMembers' => ExtensionNumber::groupMembers((int)$extension['id']),
             'queueSettings' => ExtensionNumber::queueSettings((int)$extension['id']),
+            'memberships' => ExtensionNumber::groupMembershipsFor((int)$extension['id']),
             'history' => AuditLog::forEntity('extension', (int)$extension['id']),
         ]);
     }
@@ -233,6 +265,41 @@ class ExtensionController
     }
 
     /**
+     * JSON-эндпоинт живой проверки дубля номера прямо при вводе в форме
+     * (окончательная проверка всё равно происходит на сервере в validate()
+     * при сохранении — это только подсказка в UI).
+     */
+    public function checkNumber(): void
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        if (!Auth::check()) {
+            http_response_code(403);
+            echo json_encode(['exists' => false]);
+            return;
+        }
+
+        $number = trim($_GET['number'] ?? '');
+        $category = trim($_GET['category'] ?? 'internal');
+        $excludeId = isset($_GET['exclude']) && $_GET['exclude'] !== '' ? (int)$_GET['exclude'] : null;
+
+        if ($number === '' || !in_array($category, ExtensionNumber::CATEGORIES, true)) {
+            echo json_encode(['exists' => false]);
+            return;
+        }
+
+        $duplicate = ExtensionNumber::findDuplicate($number, $category, $excludeId);
+        if (!$duplicate) {
+            echo json_encode(['exists' => false]);
+            return;
+        }
+
+        echo json_encode([
+            'exists' => true,
+            'message' => 'Такой номер уже существует (№' . $duplicate['id'] . ', ' . Labels::extensionTypeLabel($duplicate['type'], $category) . ')',
+        ]);
+    }
+
+    /**
      * JSON-эндпоинт интерактивного поиска для формы номера:
      * mode=member — внутренние номера (только category=internal, type=internal) для состава очереди/группы;
      * mode=failover — сценарии + любые внутренние номера, для маршрутизации при сбоях очереди.
@@ -304,6 +371,16 @@ class ExtensionController
             ->maxLength('owner', 150, 'Владелец')
             ->maxLength('context', 100, 'Контекст')
             ->in('status', ExtensionNumber::STATUSES, 'Статус');
+
+        // Дубли внутренних номеров запрещены — иначе диалплан не сможет
+        // однозначно определить, куда направлять вызов на такой номер.
+        $numberValue = $v->get('number');
+        if ($category === 'internal' && $numberValue !== null && $numberValue !== '') {
+            $duplicate = ExtensionNumber::findDuplicate($numberValue, 'internal', $currentId);
+            if ($duplicate) {
+                $v->addError('number', 'Такой внутренний номер уже существует (№' . $duplicate['id'] . ', ' . Labels::extensionTypeLabel($duplicate['type'], 'internal') . ')');
+            }
+        }
 
         $scenarioId = $input['scenario_id'] ?? '';
         $scenarioId = ($scenarioId === '' || $scenarioId === null) ? null : (int)$scenarioId;
