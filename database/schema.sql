@@ -223,9 +223,33 @@ CREATE TABLE IF NOT EXISTS calltracking_targets (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------------------------------------------------------
+-- Музыка (справочник аудиофайлов WAV/MP3 — фоновая музыка, объявления и т.п.)
+-- original_filename — как файл назывался при загрузке (поддерживаются русские
+-- названия); stored_filename — безопасное уникальное имя на диске
+-- (storage/music/), чтобы не зависеть от кодировки файловой системы сервера.
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS music_files (
+    id                  INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    title               VARCHAR(190)        NOT NULL,
+    original_filename   VARCHAR(255)        NOT NULL,
+    stored_filename      VARCHAR(255)        NOT NULL,
+    mime_type            VARCHAR(100)        NOT NULL,
+    size_bytes           INT UNSIGNED        NOT NULL DEFAULT 0,
+    created_by           INT UNSIGNED        NULL,
+    updated_by           INT UNSIGNED        NULL,
+    created_at           DATETIME            NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at           DATETIME            NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_music_files_stored_filename (stored_filename),
+    KEY idx_music_files_created_at (created_at),
+    CONSTRAINT fk_music_files_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+    CONSTRAINT fk_music_files_updated_by FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ----------------------------------------------------------------------------
 -- Номера / экстеншены
 -- category: internal (внутренний) | external (внешний)
 -- type для internal: internal | queue | ivr | other
+--   (в интерфейсе: Внутренний | Очередь (Queue) | Группа обзвона (Ring Group) | Служебный номер)
 -- type для external: did_city | did_mobile | calltracking | other
 -- department_id заполняется только для внутренних номеров
 -- legal_entity_id / provider_id / trunk_id заполняются только для внешних номеров
@@ -264,10 +288,60 @@ CREATE TABLE IF NOT EXISTS extensions (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------------------------------------------------------
+-- Настройки очереди / группы обзвона — расширяют номер с type = queue | ivr
+-- (1 к 1, extension_id одновременно и PK, и FK).
+-- ring_strategy для queue: ringall | leastrecent | fewestcalls | random |
+--   rrmemory | linear; для ivr (группа обзвона) допустимы только ringall | linear.
+-- caller_wait_sound, moh_music_id, announce_*, announcement_music_id,
+-- failover* — используются только для type = queue.
+-- failover{1,2}_target_type: scenario | extension (extension покрывает и
+-- внутренние номера, и очереди/группы обзвона/служебные номера — это всё
+-- строки таблицы extensions, различающиеся полем type).
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS extension_queue_settings (
+    extension_id                INT UNSIGNED        NOT NULL PRIMARY KEY,
+    ring_strategy                VARCHAR(20)          NOT NULL DEFAULT 'ringall',
+    agent_answer_timeout_sec     SMALLINT UNSIGNED    NULL,
+    agent_wrapup_time_sec        SMALLINT UNSIGNED    NULL,
+    agent_ring_in_use            TINYINT(1)           NOT NULL DEFAULT 0,
+    caller_wait_sound             VARCHAR(20)          NOT NULL DEFAULT 'music',
+    moh_music_id                  INT UNSIGNED         NULL,
+    announce_position             TINYINT(1)           NOT NULL DEFAULT 0,
+    announce_hold_time            TINYINT(1)           NOT NULL DEFAULT 0,
+    announcement_music_id         INT UNSIGNED         NULL,
+    announcement_repeat_sec       SMALLINT UNSIGNED    NULL,
+    failover1_timeout_sec         SMALLINT UNSIGNED    NULL,
+    failover1_target_type         VARCHAR(20)          NULL,
+    failover1_target_id           INT UNSIGNED         NULL,
+    failover2_target_type         VARCHAR(20)          NULL,
+    failover2_target_id           INT UNSIGNED         NULL,
+    CONSTRAINT fk_eqs_extension FOREIGN KEY (extension_id) REFERENCES extensions(id) ON DELETE CASCADE,
+    CONSTRAINT fk_eqs_moh_music FOREIGN KEY (moh_music_id) REFERENCES music_files(id) ON DELETE RESTRICT,
+    CONSTRAINT fk_eqs_announcement_music FOREIGN KEY (announcement_music_id) REFERENCES music_files(id) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ----------------------------------------------------------------------------
+-- Состав очереди / группы обзвона — упорядоченный список номеров-участников.
+-- Участником может быть только номер с category=internal и type=internal
+-- (проверяется в коде).
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS extension_group_members (
+    id                    INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    extension_id          INT UNSIGNED        NOT NULL,
+    member_extension_id   INT UNSIGNED        NOT NULL,
+    position               SMALLINT UNSIGNED   NOT NULL DEFAULT 0,
+    UNIQUE KEY uq_egm_extension_member (extension_id, member_extension_id),
+    KEY idx_egm_extension (extension_id, position),
+    KEY idx_egm_member (member_extension_id),
+    CONSTRAINT fk_egm_extension FOREIGN KEY (extension_id) REFERENCES extensions(id) ON DELETE CASCADE,
+    CONSTRAINT fk_egm_member FOREIGN KEY (member_extension_id) REFERENCES extensions(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ----------------------------------------------------------------------------
 -- Журнал аудита — кто, что и когда изменил
 -- entity_type: trunk | route | scenario | extension | user | department |
 --              equipment_type | equipment | legal_entity | provider |
---              calltracking_target
+--              calltracking_target | music_file
 -- action:      create | update | delete
 -- changes:     JSON вида {"field": {"old": ..., "new": ...}, ...}
 -- ----------------------------------------------------------------------------

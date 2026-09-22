@@ -11,26 +11,31 @@ class View
 
     public static function render(string $template, array $data = [], ?string $layout = 'layout'): void
     {
-        extract($data, EXTR_SKIP);
-
-        $file = self::$templatesPath . '/' . $template . '.php';
-        if (!is_file($file)) {
+        // Внимание: внутренние переменные этого метода (templateFile,
+        // layoutFile и т.п.) названы так, чтобы НЕ совпадать с ключами
+        // $data (например, 'file') — extract($data) кладёт их в эту же
+        // область видимости, и совпадение имени тихо затирало бы значение
+        // из $data при присвоении ниже.
+        $templateFile = self::$templatesPath . '/' . $template . '.php';
+        if (!is_file($templateFile)) {
             http_response_code(500);
             echo "Шаблон не найден: " . htmlspecialchars($template);
             return;
         }
 
         if ($layout === null) {
-            require $file;
+            extract($data, EXTR_SKIP);
+            require $templateFile;
             return;
         }
 
-        $content = function () use ($file, $data) {
+        $content = function () use ($templateFile, $data) {
             extract($data, EXTR_SKIP);
-            require $file;
+            require $templateFile;
         };
 
         $layoutFile = self::$templatesPath . '/' . $layout . '.php';
+        extract($data, EXTR_SKIP);
         require $layoutFile;
     }
 

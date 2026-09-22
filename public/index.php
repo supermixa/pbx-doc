@@ -22,6 +22,7 @@ use App\Controllers\EquipmentController;
 use App\Controllers\EquipmentTypeController;
 use App\Controllers\ExtensionController;
 use App\Controllers\LegalEntityController;
+use App\Controllers\MusicController;
 use App\Controllers\ProviderController;
 use App\Controllers\RouteController;
 use App\Controllers\ScenarioController;
@@ -102,6 +103,7 @@ $router->get('/scenarios/{id}', fn($p) => (new ScenarioController())->show($p));
 
 // ---- Номера -----------------------------------------------------------
 $router->get('/extensions', fn() => (new ExtensionController())->index());
+$router->get('/extensions/search-targets', fn() => (new ExtensionController())->searchTargets());
 $router->get('/extensions/create', fn() => (new ExtensionController())->create());
 $router->post('/extensions', fn() => (new ExtensionController())->store());
 $router->get('/extensions/{id}/edit', fn($p) => (new ExtensionController())->edit($p));
@@ -153,6 +155,17 @@ $router->get('/providers/{id}/edit', fn($p) => (new ProviderController())->edit(
 $router->post('/providers/{id}/edit', fn($p) => (new ProviderController())->update($p));
 $router->post('/providers/{id}/delete', fn($p) => (new ProviderController())->destroy($p));
 $router->get('/providers/{id}', fn($p) => (new ProviderController())->show($p));
+
+// ---- Музыка -------------------------------------------------------------
+$router->get('/music', fn() => (new MusicController())->index());
+$router->get('/music/create', fn() => (new MusicController())->create());
+$router->post('/music', fn() => (new MusicController())->store());
+$router->post('/music/quick-upload', fn() => (new MusicController())->quickUpload());
+$router->get('/music/{id}/edit', fn($p) => (new MusicController())->edit($p));
+$router->post('/music/{id}/edit', fn($p) => (new MusicController())->update($p));
+$router->post('/music/{id}/delete', fn($p) => (new MusicController())->destroy($p));
+$router->get('/music/{id}/stream', fn($p) => (new MusicController())->stream($p));
+$router->get('/music/{id}', fn($p) => (new MusicController())->show($p));
 
 // ---- Calltracking -----------------------------------------------------
 $router->get('/calltracking', fn() => (new CalltrackingTargetController())->index());

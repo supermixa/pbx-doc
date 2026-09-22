@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Core\Db;
+use App\Core\Labels;
 
 /**
  * Модель "Номер/экстеншен". Названа ExtensionNumber, чтобы не конфликтовать
@@ -17,6 +18,15 @@ class ExtensionNumber
     public const INTERNAL_TYPES = ['internal', 'queue', 'ivr', 'other'];
     /** Типы для внешних номеров (category = external); did_city — по умолчанию */
     public const EXTERNAL_TYPES = ['did_city', 'did_mobile', 'calltracking', 'other'];
+
+    /** Методы обзвона участников очереди (type = queue) */
+    public const QUEUE_RING_STRATEGIES = ['ringall', 'leastrecent', 'fewestcalls', 'random', 'rrmemory', 'linear'];
+    /** Методы обзвона участников группы обзвона (type = ivr) — подмножество методов очереди */
+    public const RING_GROUP_RING_STRATEGIES = ['ringall', 'linear'];
+    /** Что слышит абонент во время ожидания в очереди */
+    public const CALLER_WAIT_SOUNDS = ['music', 'ringing'];
+    /** Типы цели маршрутизации при сбоях очереди (сценарий или номер — очередь/группа/служебный/внутренний) */
+    public const FAILOVER_TARGET_TYPES = ['scenario', 'extension'];
 
     private static array $fillable = [
         'number', 'category', 'type', 'owner', 'context', 'scenario_id', 'department_id',
@@ -78,6 +88,251 @@ class ExtensionNumber
         $stmt = Db::connection()->prepare($sql);
         $stmt->execute(['trunk_id' => $trunkId]);
         return $stmt->fetchAll();
+    }
+
+    // ------------------------------------------------------------------
+    // Очередь / группа обзвона (type = queue | ivr)
+    // ------------------------------------------------------------------
+
+    /** Настройки очереди/группы обзвона номера (с расшифровкой музыки/целей маршрутизации) */
+    public static function queueSettings(int $extensionId): ?array
+    {
+        $sql = 'SELECT eqs.*,
+                       mm.title AS moh_music_title,
+                       am.title AS announcement_music_title
+                FROM extension_queue_settings eqs
+                LEFT JOIN music_files mm ON mm.id = eqs.moh_music_id
+                LEFT JOIN music_files am ON am.id = eqs.announcement_music_id
+                WHERE eqs.extension_id = :id';
+        $stmt = Db::connection()->prepare($sql);
+        $stmt->execute(['id' => $extensionId]);
+        $row = $stmt->fetch();
+        if (!$row) {
+            return null;
+        }
+        $row['failover1_target_label'] = self::describeTarget($row['failover1_target_type'] ?? null, $row['failover1_target_id'] ?? null);
+        $row['failover2_target_label'] = self::describeTarget($row['failover2_target_type'] ?? null, $row['failover2_target_id'] ?? null);
+        return $row;
+    }
+
+    private static function describeTarget(?string $type, $id): ?string
+    {
+        if (!$type || !$id) {
+            return null;
+        }
+        if ($type === 'scenario') {
+            $stmt = Db::connection()->prepare('SELECT name FROM scenarios WHERE id = :id');
+            $stmt->execute(['id' => $id]);
+            $name = $stmt->fetchColumn();
+            return $name !== false ? "Сценарий «{$name}»" : null;
+        }
+        if ($type === 'extension') {
+            $stmt = Db::connection()->prepare('SELECT number, category, type FROM extensions WHERE id = :id');
+            $stmt->execute(['id' => $id]);
+            $row = $stmt->fetch();
+            if (!$row) {
+                return null;
+            }
+            return 'Номер ' . $row['number'];
+        }
+        return null;
+    }
+
+    /**
+     * Полностью заменяет настройки очереди/группы обзвона номера.
+     * $data === null — удаляет настройки (номер больше не queue/ivr).
+     */
+    public static function replaceQueueSettings(int $extensionId, ?array $data): void
+    {
+        $conn = Db::connection();
+        if ($data === null) {
+            $conn->prepare('DELETE FROM extension_queue_settings WHERE extension_id = :id')->execute(['id' => $extensionId]);
+            return;
+        }
+
+        $sql = 'INSERT INTO extension_queue_settings (
+                    extension_id, ring_strategy, agent_answer_timeout_sec, agent_wrapup_time_sec, agent_ring_in_use,
+                    caller_wait_sound, moh_music_id, announce_position, announce_hold_time, announcement_music_id,
+                    announcement_repeat_sec, failover1_timeout_sec, failover1_target_type, failover1_target_id,
+                    failover2_target_type, failover2_target_id
+                ) VALUES (
+                    :extension_id, :ring_strategy, :agent_answer_timeout_sec, :agent_wrapup_time_sec, :agent_ring_in_use,
+                    :caller_wait_sound, :moh_music_id, :announce_position, :announce_hold_time, :announcement_music_id,
+                    :announcement_repeat_sec, :failover1_timeout_sec, :failover1_target_type, :failover1_target_id,
+                    :failover2_target_type, :failover2_target_id
+                )
+                ON DUPLICATE KEY UPDATE
+                    ring_strategy = VALUES(ring_strategy),
+                    agent_answer_timeout_sec = VALUES(agent_answer_timeout_sec),
+                    agent_wrapup_time_sec = VALUES(agent_wrapup_time_sec),
+                    agent_ring_in_use = VALUES(agent_ring_in_use),
+                    caller_wait_sound = VALUES(caller_wait_sound),
+                    moh_music_id = VALUES(moh_music_id),
+                    announce_position = VALUES(announce_position),
+                    announce_hold_time = VALUES(announce_hold_time),
+                    announcement_music_id = VALUES(announcement_music_id),
+                    announcement_repeat_sec = VALUES(announcement_repeat_sec),
+                    failover1_timeout_sec = VALUES(failover1_timeout_sec),
+                    failover1_target_type = VALUES(failover1_target_type),
+                    failover1_target_id = VALUES(failover1_target_id),
+                    failover2_target_type = VALUES(failover2_target_type),
+                    failover2_target_id = VALUES(failover2_target_id)';
+
+        $stmt = $conn->prepare($sql);
+        $stmt->execute([
+            'extension_id' => $extensionId,
+            'ring_strategy' => $data['ring_strategy'] ?? 'ringall',
+            'agent_answer_timeout_sec' => $data['agent_answer_timeout_sec'] ?? null,
+            'agent_wrapup_time_sec' => $data['agent_wrapup_time_sec'] ?? null,
+            'agent_ring_in_use' => !empty($data['agent_ring_in_use']) ? 1 : 0,
+            'caller_wait_sound' => $data['caller_wait_sound'] ?? 'music',
+            'moh_music_id' => $data['moh_music_id'] ?? null,
+            'announce_position' => !empty($data['announce_position']) ? 1 : 0,
+            'announce_hold_time' => !empty($data['announce_hold_time']) ? 1 : 0,
+            'announcement_music_id' => $data['announcement_music_id'] ?? null,
+            'announcement_repeat_sec' => $data['announcement_repeat_sec'] ?? null,
+            'failover1_timeout_sec' => $data['failover1_timeout_sec'] ?? null,
+            'failover1_target_type' => $data['failover1_target_type'] ?? null,
+            'failover1_target_id' => $data['failover1_target_id'] ?? null,
+            'failover2_target_type' => $data['failover2_target_type'] ?? null,
+            'failover2_target_id' => $data['failover2_target_id'] ?? null,
+        ]);
+    }
+
+    /** Упорядоченный состав участников очереди/группы обзвона */
+    public static function groupMembers(int $extensionId): array
+    {
+        $sql = 'SELECT egm.position, m.id, m.number, m.owner
+                FROM extension_group_members egm
+                JOIN extensions m ON m.id = egm.member_extension_id
+                WHERE egm.extension_id = :id
+                ORDER BY egm.position';
+        $stmt = Db::connection()->prepare($sql);
+        $stmt->execute(['id' => $extensionId]);
+        return $stmt->fetchAll();
+    }
+
+    /**
+     * Полностью заменяет состав участников (порядок = порядок в массиве).
+     * $memberExtensionIds — уже провалидированные ID (category=internal, type=internal).
+     */
+    public static function replaceGroupMembers(int $extensionId, array $memberExtensionIds): void
+    {
+        $conn = Db::connection();
+        $conn->prepare('DELETE FROM extension_group_members WHERE extension_id = :id')->execute(['id' => $extensionId]);
+
+        if (empty($memberExtensionIds)) {
+            return;
+        }
+        $stmt = $conn->prepare(
+            'INSERT INTO extension_group_members (extension_id, member_extension_id, position) VALUES (:extension_id, :member_id, :position)'
+        );
+        foreach (array_values($memberExtensionIds) as $position => $memberId) {
+            $stmt->execute(['extension_id' => $extensionId, 'member_id' => $memberId, 'position' => $position]);
+        }
+    }
+
+    /** Внутренние номера (category=internal, type=internal) — единственно допустимые участники очереди/группы */
+    public static function internalMemberCandidates(string $search = '', int $limit = 20): array
+    {
+        $sql = "SELECT id, number, owner FROM extensions WHERE category = 'internal' AND type = 'internal'";
+        $params = [];
+        if ($search !== '') {
+            $sql .= ' AND (number LIKE :search1 OR owner LIKE :search2)';
+            $params['search1'] = "%{$search}%";
+            $params['search2'] = "%{$search}%";
+        }
+        $sql .= ' ORDER BY number LIMIT ' . max(1, min(50, $limit));
+        $stmt = Db::connection()->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll();
+    }
+
+    /**
+     * Поиск целей для маршрутизации при сбоях очереди: сценарии + любые
+     * внутренние номера (очереди/группы/служебные/внутренние), кроме самого
+     * редактируемого номера (нельзя перевести звонок на самого себя).
+     */
+    public static function failoverTargetCandidates(string $search, ?int $excludeExtensionId = null, int $limit = 20): array
+    {
+        $limit = max(1, min(50, $limit));
+        $results = [];
+
+        $sql = 'SELECT id, name FROM scenarios';
+        $params = [];
+        if ($search !== '') {
+            $sql .= ' WHERE name LIKE :search';
+            $params['search'] = "%{$search}%";
+        }
+        $sql .= ' ORDER BY name LIMIT ' . $limit;
+        $stmt = Db::connection()->prepare($sql);
+        $stmt->execute($params);
+        foreach ($stmt->fetchAll() as $s) {
+            $results[] = ['type' => 'scenario', 'id' => (int)$s['id'], 'label' => 'Сценарий: ' . $s['name']];
+        }
+
+        $sql = "SELECT id, number, owner, type FROM extensions WHERE category = 'internal'";
+        $params = [];
+        if ($excludeExtensionId) {
+            $sql .= ' AND id != :exclude_id';
+            $params['exclude_id'] = $excludeExtensionId;
+        }
+        if ($search !== '') {
+            $sql .= ' AND (number LIKE :search1 OR owner LIKE :search2)';
+            $params['search1'] = "%{$search}%";
+            $params['search2'] = "%{$search}%";
+        }
+        $sql .= ' ORDER BY number LIMIT ' . $limit;
+        $stmt = Db::connection()->prepare($sql);
+        $stmt->execute($params);
+        foreach ($stmt->fetchAll() as $e) {
+            $results[] = [
+                'type' => 'extension',
+                'id' => (int)$e['id'],
+                'label' => 'Номер ' . $e['number'] . ' (' . Labels::extensionTypeLabel($e['type'], 'internal') . ')' . ($e['owner'] ? ' — ' . $e['owner'] : ''),
+            ];
+        }
+
+        return $results;
+    }
+
+    /** Очереди/группы обзвона, в состав которых входит данный номер (для защиты от удаления/смены типа) */
+    public static function groupMembershipsFor(int $memberExtensionId): array
+    {
+        $sql = 'SELECT q.id, q.number, q.type
+                FROM extension_group_members egm
+                JOIN extensions q ON q.id = egm.extension_id
+                WHERE egm.member_extension_id = :id
+                ORDER BY q.number';
+        $stmt = Db::connection()->prepare($sql);
+        $stmt->execute(['id' => $memberExtensionId]);
+        return $stmt->fetchAll();
+    }
+
+    /** Короткое читаемое резюме состава — для журнала аудита */
+    public static function summarizeMembers(array $memberRows): string
+    {
+        if (empty($memberRows)) {
+            return '';
+        }
+        $parts = array_map(fn($m) => $m['number'] . ($m['owner'] ? " ({$m['owner']})" : ''), $memberRows);
+        return implode(', ', $parts);
+    }
+
+    /** Короткое читаемое резюме настроек очереди/группы обзвона — для журнала аудита */
+    public static function summarizeQueueSettings(?array $settings): string
+    {
+        if (!$settings) {
+            return '';
+        }
+        $parts = ['метод: ' . Labels::ringStrategyShortLabel($settings['ring_strategy'] ?? null)];
+        if (!empty($settings['agent_answer_timeout_sec'])) {
+            $parts[] = 'дозвон ' . $settings['agent_answer_timeout_sec'] . ' сек';
+        }
+        if (!empty($settings['agent_wrapup_time_sec'])) {
+            $parts[] = 'отдых ' . $settings['agent_wrapup_time_sec'] . ' сек';
+        }
+        return implode('; ', $parts);
     }
 
     public static function countByCategory(string $category): int

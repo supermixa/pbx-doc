@@ -47,8 +47,9 @@ $entityType = $history[0]['entity_type'] ?? '';
                                 <?php foreach ($changes as $field => $vals): ?>
                                     <tr>
                                         <td><?= View::e(Labels::field($field)) ?></td>
-                                        <td class="audit-diff-old"><?= View::e(Labels::formatFieldValue($et, $field, $vals['old'] ?? null)) ?></td>
-                                        <td class="audit-diff-new"><?= View::e(Labels::formatFieldValue($et, $field, $vals['new'] ?? null)) ?></td>
+                                        <?php $extCategory = ($et === 'extension' && isset($extension['category'])) ? $extension['category'] : null; ?>
+                                        <td class="audit-diff-old"><?= View::e(Labels::formatFieldValue($et, $field, $vals['old'] ?? null, $extCategory)) ?></td>
+                                        <td class="audit-diff-new"><?= View::e(Labels::formatFieldValue($et, $field, $vals['new'] ?? null, $extCategory)) ?></td>
                                     </tr>
                                 <?php endforeach; ?>
                                 </tbody>

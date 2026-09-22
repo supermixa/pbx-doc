@@ -53,7 +53,7 @@ use App\Core\View;
                 <tr style="cursor:pointer" onclick="location.href='/extensions/<?= (int)$e['id'] ?>'">
                     <td><a href="/extensions/<?= (int)$e['id'] ?>" class="text-decoration-none fw-semibold"><?= View::e($e['number']) ?></a></td>
                     <td><span class="badge <?= $e['category'] === 'external' ? 'text-bg-info' : 'text-bg-light text-dark border' ?>"><?= View::e(Labels::extensionCategoryLabel($e['category'])) ?></span></td>
-                    <td><?= View::e(Labels::extensionTypeLabel($e['type'])) ?></td>
+                    <td><?= View::e(Labels::extensionTypeLabel($e['type'], $e['category'])) ?></td>
                     <td><?= View::e($e['owner'] ?: '—') ?></td>
                     <td><?= View::e(($e['category'] === 'internal' ? $e['department_name'] : $e['legal_entity_name']) ?? '—') ?></td>
                     <td><?= View::e($e['scenario_name'] ?? '—') ?></td>

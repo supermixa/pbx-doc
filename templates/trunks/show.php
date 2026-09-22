@@ -54,7 +54,7 @@ use App\Core\View;
                         <?php foreach ($extensions as $e): ?>
                             <li class="list-group-item d-flex justify-content-between align-items-center flex-wrap gap-2">
                                 <a href="/extensions/<?= (int)$e['id'] ?>"><?= View::e($e['number']) ?></a>
-                                <span class="text-muted small"><?= View::e(Labels::extensionTypeLabel($e['type'])) ?></span>
+                                <span class="text-muted small"><?= View::e(Labels::extensionTypeLabel($e['type'], $e['category'])) ?></span>
                             </li>
                         <?php endforeach; ?>
                     </ul>

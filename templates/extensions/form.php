@@ -4,12 +4,16 @@ use App\Core\Labels;
 use App\Core\View;
 use App\Models\ExtensionNumber;
 
+require __DIR__ . '/_form_helpers.php';
+
 $isEdit = !empty($extension['id']);
 $action = $isEdit ? '/extensions/' . (int)$extension['id'] . '/edit' : '/extensions';
+$currentExtensionId = $isEdit ? (int)$extension['id'] : null;
+$qs = $queueSettings ?? null;
 ?>
 <h3 class="mb-3"><?= View::e($title) ?></h3>
 
-<form method="post" action="<?= $action ?>" class="card">
+<form method="post" action="<?= $action ?>" class="card" id="extension-form">
     <div class="card-body">
         <?= Csrf::field() ?>
 
@@ -33,7 +37,7 @@ $action = $isEdit ? '/extensions/' . (int)$extension['id'] . '/edit' : '/extensi
                 <label class="form-label">Тип *</label>
                 <select name="type" id="type-internal-select" class="form-select <?= isset($errors['type']) ? 'is-invalid' : '' ?>">
                     <?php foreach (ExtensionNumber::INTERNAL_TYPES as $t): ?>
-                        <option value="<?= $t ?>" <?= ($extension['type'] ?? 'internal') === $t ? 'selected' : '' ?>><?= View::e(Labels::extensionTypeLabel($t)) ?></option>
+                        <option value="<?= $t ?>" <?= ($extension['type'] ?? 'internal') === $t ? 'selected' : '' ?>><?= View::e(Labels::extensionTypeLabel($t, 'internal')) ?></option>
                     <?php endforeach; ?>
                 </select>
             </div>
@@ -41,7 +45,7 @@ $action = $isEdit ? '/extensions/' . (int)$extension['id'] . '/edit' : '/extensi
                 <label class="form-label">Тип *</label>
                 <select name="type" id="type-external-select" class="form-select <?= isset($errors['type']) ? 'is-invalid' : '' ?>" disabled>
                     <?php foreach (ExtensionNumber::EXTERNAL_TYPES as $t): ?>
-                        <option value="<?= $t ?>" <?= ($extension['type'] ?? '') === $t ? 'selected' : '' ?>><?= View::e(Labels::extensionTypeLabel($t)) ?></option>
+                        <option value="<?= $t ?>" <?= ($extension['type'] ?? '') === $t ? 'selected' : '' ?>><?= View::e(Labels::extensionTypeLabel($t, 'external')) ?></option>
                     <?php endforeach; ?>
                 </select>
                 <?php if (isset($errors['type'])): ?><div class="invalid-feedback d-block"><?= View::e($errors['type']) ?></div><?php endif; ?>
@@ -98,7 +102,7 @@ $action = $isEdit ? '/extensions/' . (int)$extension['id'] . '/edit' : '/extensi
                 </select>
             </div>
 
-            <div class="col-md-6">
+            <div class="col-md-6" id="scenario-context-row-scenario">
                 <label class="form-label">Связанный сценарий</label>
                 <select name="scenario_id" class="form-select">
                     <option value="">— не выбран —</option>
@@ -107,7 +111,7 @@ $action = $isEdit ? '/extensions/' . (int)$extension['id'] . '/edit' : '/extensi
                     <?php endforeach; ?>
                 </select>
             </div>
-            <div class="col-md-6">
+            <div class="col-md-6" id="scenario-context-row-context">
                 <label class="form-label">Контекст диалплана</label>
                 <input type="text" name="context" class="form-control" value="<?= View::e($extension['context'] ?? '') ?>" placeholder="internal">
             </div>
@@ -122,6 +126,134 @@ $action = $isEdit ? '/extensions/' . (int)$extension['id'] . '/edit' : '/extensi
                 </select>
             </div>
 
+            <!-- ============================================================
+                 Состав очереди / группы обзвона (queue | ivr)
+                 ============================================================ -->
+            <div class="col-12 queue-or-ringgroup-field">
+                <hr>
+                <label class="form-label fw-semibold" id="members-section-label">Состав очереди</label>
+                <div class="position-relative mb-2">
+                    <input type="text" id="member-search-input" class="form-control" autocomplete="off" placeholder="Начните вводить номер или владельца, чтобы добавить участника...">
+                    <div id="member-search-results" class="list-group position-absolute w-100 shadow-sm" style="z-index: 20; max-height: 260px; overflow-y: auto; display:none;"></div>
+                </div>
+                <ul class="list-group" id="members-list">
+                    <?php foreach (($groupMembers ?? []) as $m): ?>
+                        <li class="list-group-item d-flex justify-content-between align-items-center" data-id="<?= (int)$m['id'] ?>">
+                            <span class="member-label"><?= View::e($m['number']) ?><?= !empty($m['owner']) ? ' — ' . View::e($m['owner']) : '' ?></span>
+                            <span class="btn-group btn-group-sm">
+                                <button type="button" class="btn btn-outline-secondary member-move-up" title="Вверх">↑</button>
+                                <button type="button" class="btn btn-outline-secondary member-move-down" title="Вниз">↓</button>
+                                <button type="button" class="btn btn-outline-danger member-remove" title="Удалить">✕</button>
+                            </span>
+                            <input type="hidden" name="member_extension_id[]" value="<?= (int)$m['id'] ?>">
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+                <div class="form-text">Участником может быть только внутренний номер с типом «Внутренний». Порядок можно менять стрелками.</div>
+                <?php if (isset($errors['member_extension_id'])): ?><div class="text-danger small mt-1"><?= View::e($errors['member_extension_id']) ?></div><?php endif; ?>
+            </div>
+
+            <!-- Метод обзвона: два независимых select'а (очередь / группа обзвона) -->
+            <div class="col-md-8 queue-only-field" id="ring-strategy-queue-field">
+                <label class="form-label">Метод обзвона участников</label>
+                <select name="ring_strategy" id="ring-strategy-queue-select" class="form-select <?= isset($errors['ring_strategy']) ? 'is-invalid' : '' ?>">
+                    <?php foreach (ExtensionNumber::QUEUE_RING_STRATEGIES as $rs): ?>
+                        <option value="<?= $rs ?>" <?= ($qs['ring_strategy'] ?? 'ringall') === $rs ? 'selected' : '' ?>><?= View::e(Labels::queueRingStrategyLabel($rs)) ?></option>
+                    <?php endforeach; ?>
+                </select>
+                <?php if (isset($errors['ring_strategy'])): ?><div class="invalid-feedback d-block"><?= View::e($errors['ring_strategy']) ?></div><?php endif; ?>
+            </div>
+            <div class="col-md-8 ringgroup-only-field" id="ring-strategy-ringgroup-field">
+                <label class="form-label">Метод обзвона участников</label>
+                <select name="ring_strategy" id="ring-strategy-ringgroup-select" class="form-select <?= isset($errors['ring_strategy']) ? 'is-invalid' : '' ?>" disabled>
+                    <?php foreach (ExtensionNumber::RING_GROUP_RING_STRATEGIES as $rs): ?>
+                        <option value="<?= $rs ?>" <?= ($qs['ring_strategy'] ?? 'ringall') === $rs ? 'selected' : '' ?>><?= View::e(Labels::ringGroupRingStrategyLabel($rs)) ?></option>
+                    <?php endforeach; ?>
+                </select>
+                <?php if (isset($errors['ring_strategy'])): ?><div class="invalid-feedback d-block"><?= View::e($errors['ring_strategy']) ?></div><?php endif; ?>
+            </div>
+
+            <!-- Настройки очереди для операторов (общие для queue и ivr) -->
+            <div class="col-12 queue-or-ringgroup-field"><hr><h5 class="mb-0">Настройки очереди для операторов</h5></div>
+            <div class="col-md-4 queue-or-ringgroup-field">
+                <label class="form-label">Время попытки дозвона операторам, сек</label>
+                <input type="number" min="0" max="86400" name="agent_answer_timeout_sec" class="form-control <?= isset($errors['agent_answer_timeout_sec']) ? 'is-invalid' : '' ?>" value="<?= View::e((string)($qs['agent_answer_timeout_sec'] ?? '')) ?>">
+                <?php if (isset($errors['agent_answer_timeout_sec'])): ?><div class="invalid-feedback"><?= View::e($errors['agent_answer_timeout_sec']) ?></div><?php endif; ?>
+            </div>
+            <div class="col-md-4 queue-or-ringgroup-field">
+                <label class="form-label">Время отдыха оператора после звонка, сек</label>
+                <input type="number" min="0" max="86400" name="agent_wrapup_time_sec" class="form-control <?= isset($errors['agent_wrapup_time_sec']) ? 'is-invalid' : '' ?>" value="<?= View::e((string)($qs['agent_wrapup_time_sec'] ?? '')) ?>">
+                <?php if (isset($errors['agent_wrapup_time_sec'])): ?><div class="invalid-feedback"><?= View::e($errors['agent_wrapup_time_sec']) ?></div><?php endif; ?>
+            </div>
+            <div class="col-md-4 queue-only-field d-flex align-items-end">
+                <div class="form-check form-switch mb-2">
+                    <input class="form-check-input" type="checkbox" name="agent_ring_in_use" id="agent-ring-in-use" value="1" <?= !empty($qs['agent_ring_in_use']) ? 'checked' : '' ?>>
+                    <label class="form-check-label" for="agent-ring-in-use">Получать новые звонки во время разговора</label>
+                </div>
+            </div>
+
+            <!-- Настройки очереди для вызывающего абонента (только queue) -->
+            <div class="col-12 queue-only-field"><hr><h5 class="mb-0">Настройки очереди для вызывающего абонента</h5></div>
+            <div class="col-md-4 queue-only-field">
+                <label class="form-label">Что слышит абонент во время ожидания</label>
+                <select name="caller_wait_sound" id="caller-wait-sound-select" class="form-select <?= isset($errors['caller_wait_sound']) ? 'is-invalid' : '' ?>">
+                    <?php foreach (ExtensionNumber::CALLER_WAIT_SOUNDS as $cw): ?>
+                        <option value="<?= $cw ?>" <?= ($qs['caller_wait_sound'] ?? 'music') === $cw ? 'selected' : '' ?>><?= View::e(Labels::callerWaitSoundLabel($cw)) ?></option>
+                    <?php endforeach; ?>
+                </select>
+                <?php if (isset($errors['caller_wait_sound'])): ?><div class="invalid-feedback d-block"><?= View::e($errors['caller_wait_sound']) ?></div><?php endif; ?>
+            </div>
+            <div class="col-md-8 queue-only-field" id="moh-music-field">
+                <label class="form-label">Фоновая музыка (MOH)</label>
+                <?= musicPicker('moh_music_id', $musicFiles, (int)($qs['moh_music_id'] ?? 0)) ?>
+                <?php if (isset($errors['moh_music_id'])): ?><div class="text-danger small mt-1"><?= View::e($errors['moh_music_id']) ?></div><?php endif; ?>
+            </div>
+
+            <div class="col-md-6 queue-only-field">
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" name="announce_position" id="announce-position" value="1" <?= !empty($qs['announce_position']) ? 'checked' : '' ?>>
+                    <label class="form-check-label" for="announce-position">Оповещать о текущей позиции в очереди</label>
+                </div>
+            </div>
+            <div class="col-md-6 queue-only-field">
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" name="announce_hold_time" id="announce-hold-time" value="1" <?= !empty($qs['announce_hold_time']) ? 'checked' : '' ?>>
+                    <label class="form-check-label" for="announce-hold-time">Оповещать о расчётном времени ожидания</label>
+                </div>
+            </div>
+            <div class="col-md-8 queue-only-field">
+                <label class="form-label">Рекламная фраза или дополнительное оповещение</label>
+                <?= musicPicker('announcement_music_id', $musicFiles, (int)($qs['announcement_music_id'] ?? 0)) ?>
+                <?php if (isset($errors['announcement_music_id'])): ?><div class="text-danger small mt-1"><?= View::e($errors['announcement_music_id']) ?></div><?php endif; ?>
+            </div>
+            <div class="col-md-4 queue-only-field">
+                <label class="form-label">Повтор оповещений, сек</label>
+                <input type="number" min="0" max="86400" name="announcement_repeat_sec" class="form-control <?= isset($errors['announcement_repeat_sec']) ? 'is-invalid' : '' ?>" value="<?= View::e((string)($qs['announcement_repeat_sec'] ?? '')) ?>">
+                <?php if (isset($errors['announcement_repeat_sec'])): ?><div class="invalid-feedback"><?= View::e($errors['announcement_repeat_sec']) ?></div><?php endif; ?>
+            </div>
+
+            <!-- Маршрутизация звонков при сбоях (только queue) -->
+            <div class="col-12 queue-only-field"><hr><h5 class="mb-0">Маршрутизация звонков при сбоях</h5></div>
+            <div class="col-md-6 queue-only-field">
+                <div class="border rounded p-3 h-100">
+                    <h6>Сценарий №1</h6>
+                    <label class="form-label">Если абонент ожидает в очереди более, сек</label>
+                    <input type="number" min="0" max="86400" name="failover1_timeout_sec" class="form-control mb-2 <?= isset($errors['failover1_timeout_sec']) ? 'is-invalid' : '' ?>" value="<?= View::e((string)($qs['failover1_timeout_sec'] ?? '')) ?>">
+                    <?php if (isset($errors['failover1_timeout_sec'])): ?><div class="invalid-feedback"><?= View::e($errors['failover1_timeout_sec']) ?></div><?php endif; ?>
+                    <label class="form-label">Перевести вызов на</label>
+                    <?= failoverPicker('failover1', $qs['failover1_target_type'] ?? null, $qs['failover1_target_id'] ?? null, $qs['failover1_target_label'] ?? null) ?>
+                    <?php if (isset($errors['failover1_target'])): ?><div class="text-danger small mt-1"><?= View::e($errors['failover1_target']) ?></div><?php endif; ?>
+                </div>
+            </div>
+            <div class="col-md-6 queue-only-field">
+                <div class="border rounded p-3 h-100">
+                    <h6>Сценарий №2</h6>
+                    <label class="form-label">Если в очереди нет операторов, перевести вызов на</label>
+                    <?= failoverPicker('failover2', $qs['failover2_target_type'] ?? null, $qs['failover2_target_id'] ?? null, $qs['failover2_target_label'] ?? null) ?>
+                    <?php if (isset($errors['failover2_target'])): ?><div class="text-danger small mt-1"><?= View::e($errors['failover2_target']) ?></div><?php endif; ?>
+                </div>
+            </div>
+
             <div class="col-12">
                 <label class="form-label">Описание</label>
                 <textarea name="description" class="form-control" rows="4"><?= View::e($extension['description'] ?? '') ?></textarea>
@@ -134,73 +266,6 @@ $action = $isEdit ? '/extensions/' . (int)$extension['id'] . '/edit' : '/extensi
     </div>
 </form>
 <script>
-(function () {
-    var categorySelect = document.getElementById('category-select');
-    var departmentField = document.getElementById('department-field');
-    var internalFields = document.querySelectorAll('.internal-field');
-    var externalFields = document.querySelectorAll('.external-field');
-    var typeInternalField = document.getElementById('type-internal-field');
-    var typeExternalField = document.getElementById('type-external-field');
-    var typeInternalSelect = document.getElementById('type-internal-select');
-    var typeExternalSelect = document.getElementById('type-external-select');
-
-    var calltrackingField = document.getElementById('calltracking-target-field');
-
-    function toggleCalltrackingField() {
-        var isExternal = categorySelect.value === 'external';
-        var isCalltracking = isExternal && typeExternalSelect.value === 'calltracking';
-        calltrackingField.style.display = isCalltracking ? '' : 'none';
-    }
-
-    function toggleByCategory() {
-        var isExternal = categorySelect.value === 'external';
-
-        internalFields.forEach(function (el) { el.style.display = isExternal ? 'none' : ''; });
-        externalFields.forEach(function (el) { el.style.display = isExternal ? '' : 'none'; });
-
-        typeInternalField.style.display = isExternal ? 'none' : '';
-        typeExternalField.style.display = isExternal ? '' : 'none';
-        typeInternalSelect.disabled = isExternal;
-        typeExternalSelect.disabled = !isExternal;
-
-        toggleCalltrackingField();
-    }
-
-    categorySelect.addEventListener('change', toggleByCategory);
-    typeExternalSelect.addEventListener('change', toggleCalltrackingField);
-    toggleByCategory();
-
-    var legalEntitySelect = document.getElementById('legal-entity-select');
-    var providerSelect = document.getElementById('provider-select');
-    var providerOptions = Array.prototype.slice.call(providerSelect.querySelectorAll('option[value]:not([value=""])'));
-    var providerPlaceholder = providerSelect.querySelector('option[value=""]');
-
-    function filterProviders() {
-        var legalEntityId = legalEntitySelect.value;
-        var anyVisible = false;
-        providerOptions.forEach(function (opt) {
-            var ids = (opt.getAttribute('data-legal-entities') || '').split(',');
-            var visible = legalEntityId !== '' && ids.indexOf(legalEntityId) !== -1;
-            opt.style.display = visible ? '' : 'none';
-            opt.disabled = !visible;
-            if (visible) {
-                anyVisible = true;
-            }
-        });
-        if (legalEntityId === '') {
-            providerPlaceholder.textContent = '— сначала выберите юрлицо —';
-        } else if (!anyVisible) {
-            providerPlaceholder.textContent = '— нет привязанных провайдеров —';
-        } else {
-            providerPlaceholder.textContent = '— не выбран —';
-        }
-        var currentOpt = providerSelect.options[providerSelect.selectedIndex];
-        if (currentOpt && currentOpt.value !== '' && currentOpt.style.display === 'none') {
-            providerSelect.value = '';
-        }
-    }
-
-    legalEntitySelect.addEventListener('change', filterProviders);
-    filterProviders();
-})();
+var CURRENT_EXTENSION_ID = <?= $currentExtensionId !== null ? (int)$currentExtensionId : 'null' ?>;
 </script>
+<script src="/assets/js/extension-form.js"></script>
