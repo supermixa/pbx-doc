@@ -31,14 +31,13 @@ use App\Core\View;
                     <dd class="col-sm-8"><span class="badge <?= $extension['category'] === 'external' ? 'text-bg-info' : 'text-bg-light text-dark border' ?>"><?= View::e(Labels::extensionCategoryLabel($extension['category'])) ?></span></dd>
                     <dt class="col-sm-4">Тип</dt><dd class="col-sm-8"><?= View::e(Labels::extensionTypeLabel($extension['type'], $extension['category'])) ?></dd>
                     <dt class="col-sm-4">Владелец</dt><dd class="col-sm-8"><?= View::e($extension['owner'] ?: '—') ?></dd>
-                    <?php if ($extension['category'] === 'internal'): ?>
-                        <dt class="col-sm-4">Подразделение</dt>
-                        <dd class="col-sm-8">
-                            <?php if (!empty($extension['department_id'])): ?>
-                                <a href="/departments/<?= (int)$extension['department_id'] ?>"><?= View::e($extension['department_name']) ?></a>
-                            <?php else: ?>—<?php endif; ?>
-                        </dd>
-                    <?php else: ?>
+                    <dt class="col-sm-4">Подразделение</dt>
+                    <dd class="col-sm-8">
+                        <?php if (!empty($extension['department_id'])): ?>
+                            <a href="/departments/<?= (int)$extension['department_id'] ?>"><?= View::e($extension['department_name']) ?></a>
+                        <?php else: ?>—<?php endif; ?>
+                    </dd>
+                    <?php if ($extension['category'] === 'external'): ?>
                         <dt class="col-sm-4">Юрлицо</dt>
                         <dd class="col-sm-8">
                             <?php if (!empty($extension['legal_entity_id'])): ?>

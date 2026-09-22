@@ -18,6 +18,10 @@
     var typeInternalSelect = document.getElementById('type-internal-select');
     var typeExternalSelect = document.getElementById('type-external-select');
     var calltrackingField = document.getElementById('calltracking-target-field');
+    var departmentFieldStandard = document.getElementById('department-field-standard');
+    var departmentSelectStandard = document.getElementById('department-select-standard');
+    var departmentFieldCalltracking = document.getElementById('department-field-calltracking');
+    var departmentSelectCalltracking = document.getElementById('department-select-calltracking');
 
     var scenarioRowScenario = document.getElementById('scenario-context-row-scenario');
     var scenarioRowContext = document.getElementById('scenario-context-row-context');
@@ -34,6 +38,18 @@
         var isExternal = categorySelect.value === 'external';
         var isCalltracking = isExternal && typeExternalSelect.value === 'calltracking';
         calltrackingField.style.display = isCalltracking ? '' : 'none';
+
+        // Подразделение: обычное поле — для внутренних и внешних (кроме
+        // Calltracking); у Calltracking своё поле "Подразделение", парное
+        // с выбором Цели (фильтрует список целей).
+        departmentFieldCalltracking.style.display = isCalltracking ? '' : 'none';
+        departmentSelectCalltracking.disabled = !isCalltracking;
+
+        var showStandardDepartment = !isCalltracking;
+        departmentFieldStandard.style.display = showStandardDepartment ? '' : 'none';
+        departmentSelectStandard.disabled = !showStandardDepartment;
+
+        filterCalltrackingTargets();
     }
 
     function toggleQueueRingGroupSections() {
@@ -114,6 +130,51 @@
 
     legalEntitySelect.addEventListener('change', filterProviders);
     filterProviders();
+
+    // ------------------------------------------------------------------
+    // Calltracking: подразделение -> фильтрация доступных целей
+    // ------------------------------------------------------------------
+    var calltrackingTargetSelect = document.getElementById('calltracking-target-select');
+    var calltrackingTargetOptions = calltrackingTargetSelect
+        ? Array.prototype.slice.call(calltrackingTargetSelect.querySelectorAll('option[value]:not([value=""])'))
+        : [];
+    var calltrackingTargetPlaceholder = calltrackingTargetSelect
+        ? calltrackingTargetSelect.querySelector('option[value=""]')
+        : null;
+
+    function filterCalltrackingTargets() {
+        if (!calltrackingTargetSelect || !departmentSelectCalltracking) {
+            return;
+        }
+        var departmentId = departmentSelectCalltracking.value;
+        var anyVisible = false;
+        calltrackingTargetOptions.forEach(function (opt) {
+            var visible = departmentId !== '' && opt.getAttribute('data-department') === departmentId;
+            opt.style.display = visible ? '' : 'none';
+            opt.disabled = !visible;
+            if (visible) {
+                anyVisible = true;
+            }
+        });
+        if (calltrackingTargetPlaceholder) {
+            if (departmentId === '') {
+                calltrackingTargetPlaceholder.textContent = '— сначала выберите подразделение —';
+            } else if (!anyVisible) {
+                calltrackingTargetPlaceholder.textContent = '— нет целей для этого подразделения —';
+            } else {
+                calltrackingTargetPlaceholder.textContent = '— не выбрана —';
+            }
+        }
+        var currentOpt = calltrackingTargetSelect.options[calltrackingTargetSelect.selectedIndex];
+        if (currentOpt && currentOpt.value !== '' && currentOpt.style.display === 'none') {
+            calltrackingTargetSelect.value = '';
+        }
+    }
+
+    if (departmentSelectCalltracking) {
+        departmentSelectCalltracking.addEventListener('change', filterCalltrackingTargets);
+    }
+    filterCalltrackingTargets();
 
     // ------------------------------------------------------------------
     // Что слышит абонент во время ожидания -> показ/скрытие MOH

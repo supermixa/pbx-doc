@@ -49,7 +49,7 @@ class ExtensionNumber
                        ct.target AS calltracking_target_name,
                        cu.name AS created_by_name, uu.name AS updated_by_name';
 
-    public static function all(string $search = '', string $category = ''): array
+    public static function all(string $search = '', string $category = '', string $type = ''): array
     {
         $sql = 'SELECT ' . self::SELECT_COLUMNS . self::JOINS;
         $where = [];
@@ -62,6 +62,10 @@ class ExtensionNumber
         if (in_array($category, self::CATEGORIES, true)) {
             $where[] = 'e.category = :category';
             $params['category'] = $category;
+        }
+        if ($type !== '') {
+            $where[] = 'e.type = :type';
+            $params['type'] = $type;
         }
         if (!empty($where)) {
             $sql .= ' WHERE ' . implode(' AND ', $where);
@@ -335,10 +339,17 @@ class ExtensionNumber
         return implode('; ', $parts);
     }
 
-    public static function countByCategory(string $category): int
+    /** Счётчик для вкладок страницы /extensions. $type === null — не фильтровать по типу. */
+    public static function countByCategoryAndType(string $category, ?string $type = null): int
     {
-        $stmt = Db::connection()->prepare('SELECT COUNT(*) FROM extensions WHERE category = :category');
-        $stmt->execute(['category' => $category]);
+        $sql = 'SELECT COUNT(*) FROM extensions WHERE category = :category';
+        $params = ['category' => $category];
+        if ($type !== null) {
+            $sql .= ' AND type = :type';
+            $params['type'] = $type;
+        }
+        $stmt = Db::connection()->prepare($sql);
+        $stmt->execute($params);
         return (int)$stmt->fetchColumn();
     }
 

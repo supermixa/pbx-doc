@@ -51,25 +51,26 @@ $qs = $queueSettings ?? null;
                 <?php if (isset($errors['type'])): ?><div class="invalid-feedback d-block"><?= View::e($errors['type']) ?></div><?php endif; ?>
             </div>
 
-            <div class="col-md-6">
+            <div class="col-md-4">
                 <label class="form-label">Владелец</label>
                 <input type="text" name="owner" class="form-control" value="<?= View::e($extension['owner'] ?? '') ?>" placeholder="Иванов И.И. / Отдел продаж">
             </div>
-            <div class="col-md-6">
-                <label class="form-label">Статус</label>
-                <select name="status" class="form-select">
-                    <?php foreach (ExtensionNumber::STATUSES as $s): ?>
-                        <option value="<?= $s ?>" <?= ($extension['status'] ?? 'active') === $s ? 'selected' : '' ?>><?= View::e(Labels::statusLabel($s)) ?></option>
+
+            <div class="col-md-4" id="department-field-standard">
+                <label class="form-label">Подразделение</label>
+                <select name="department_id" id="department-select-standard" class="form-select">
+                    <option value="">— не выбрано —</option>
+                    <?php foreach ($departments as $d): ?>
+                        <option value="<?= (int)$d['id'] ?>" <?= (int)($extension['department_id'] ?? 0) === (int)$d['id'] ? 'selected' : '' ?>><?= View::e($d['name']) ?></option>
                     <?php endforeach; ?>
                 </select>
             </div>
 
-            <div class="col-md-6 internal-field" id="department-field">
-                <label class="form-label">Подразделение</label>
-                <select name="department_id" class="form-select">
-                    <option value="">— не выбрано —</option>
-                    <?php foreach ($departments as $d): ?>
-                        <option value="<?= (int)$d['id'] ?>" <?= (int)($extension['department_id'] ?? 0) === (int)$d['id'] ? 'selected' : '' ?>><?= View::e($d['name']) ?></option>
+            <div class="col-md-4">
+                <label class="form-label">Статус</label>
+                <select name="status" class="form-select">
+                    <?php foreach (ExtensionNumber::STATUSES as $s): ?>
+                        <option value="<?= $s ?>" <?= ($extension['status'] ?? 'active') === $s ? 'selected' : '' ?>><?= View::e(Labels::statusLabel($s)) ?></option>
                     <?php endforeach; ?>
                 </select>
             </div>
@@ -116,14 +117,24 @@ $qs = $queueSettings ?? null;
                 <input type="text" name="context" class="form-control" value="<?= View::e($extension['context'] ?? '') ?>" placeholder="internal">
             </div>
 
-            <div class="col-md-6 external-field calltracking-field" id="calltracking-target-field">
-                <label class="form-label">Цель</label>
-                <select name="calltracking_target_id" id="calltracking-target-select" class="form-select">
-                    <option value="">— не выбрана —</option>
-                    <?php foreach ($calltrackingTargets as $ct): ?>
-                        <option value="<?= (int)$ct['id'] ?>" <?= (int)($extension['calltracking_target_id'] ?? 0) === (int)$ct['id'] ? 'selected' : '' ?>><?= View::e(($ct['department_name'] ?? '') !== '' ? $ct['department_name'] . ' — ' . $ct['target'] : $ct['target']) ?></option>
+            <div class="col-md-3 external-field calltracking-field" id="department-field-calltracking">
+                <label class="form-label">Подразделение</label>
+                <select name="department_id" id="department-select-calltracking" class="form-select" disabled>
+                    <option value="">— не выбрано —</option>
+                    <?php foreach ($departments as $d): ?>
+                        <option value="<?= (int)$d['id'] ?>" <?= (int)($extension['department_id'] ?? 0) === (int)$d['id'] ? 'selected' : '' ?>><?= View::e($d['name']) ?></option>
                     <?php endforeach; ?>
                 </select>
+            </div>
+            <div class="col-md-5 external-field calltracking-field" id="calltracking-target-field">
+                <label class="form-label">Цель</label>
+                <select name="calltracking_target_id" id="calltracking-target-select" class="form-select">
+                    <option value="">— сначала выберите подразделение —</option>
+                    <?php foreach ($calltrackingTargets as $ct): ?>
+                        <option value="<?= (int)$ct['id'] ?>" data-department="<?= (int)($ct['department_id'] ?? 0) ?>" <?= (int)($extension['calltracking_target_id'] ?? 0) === (int)$ct['id'] ? 'selected' : '' ?>><?= View::e($ct['target']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+                <div class="form-text">Список целей ограничен выбранным подразделением.</div>
             </div>
 
             <!-- ============================================================

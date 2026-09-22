@@ -22,20 +22,38 @@ use Throwable;
 
 class ExtensionController
 {
+    /** Вкладка -> [категория, тип (null = любой тип этой категории)] */
+    private const INDEX_TABS = [
+        'external' => ['external', null],
+        'internal' => ['internal', 'internal'],
+        'queue'    => ['internal', 'queue'],
+        'ivr'      => ['internal', 'ivr'],
+        'other'    => ['internal', 'other'],
+    ];
+
     public function index(): void
     {
         if (!Auth::requireLogin()) {
             return;
         }
         $search = trim($_GET['q'] ?? '');
-        $category = trim($_GET['category'] ?? '');
+        $tab = $_GET['tab'] ?? 'external';
+        if (!array_key_exists($tab, self::INDEX_TABS)) {
+            $tab = 'external';
+        }
+        [$category, $type] = self::INDEX_TABS[$tab];
+
+        $counts = [];
+        foreach (self::INDEX_TABS as $key => [$c, $t]) {
+            $counts[$key] = ExtensionNumber::countByCategoryAndType($c, $t);
+        }
+
         View::render('extensions/index', [
             'title' => 'Номера',
-            'extensions' => ExtensionNumber::all($search, $category),
+            'extensions' => ExtensionNumber::all($search, $category, $type ?? ''),
             'search' => $search,
-            'category' => $category,
-            'countInternal' => ExtensionNumber::countByCategory('internal'),
-            'countExternal' => ExtensionNumber::countByCategory('external'),
+            'tab' => $tab,
+            'counts' => $counts,
         ]);
     }
 
@@ -309,10 +327,9 @@ class ExtensionController
         $isQueue = $category === 'internal' && $type === 'queue';
         $isRingGroup = $category === 'internal' && $type === 'ivr';
 
-        // Поля привязаны к соответствующей категории — если категория не та, значение не сохраняем
-        if ($category !== 'internal') {
-            $departmentId = null;
-        }
+        // Подразделение теперь доступно и внутренним, и внешним номерам (для
+        // внешних — кроме Calltracking, у которого своё поле "Подразделение",
+        // связанное с выбором Цели; оно передаётся тем же полем department_id).
         if ($category !== 'external') {
             $legalEntityId = null;
             $providerId = null;
