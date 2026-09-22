@@ -196,10 +196,18 @@ $qs = $queueSettings ?? null;
                 <input type="number" min="0" max="86400" name="agent_wrapup_time_sec" class="form-control <?= isset($errors['agent_wrapup_time_sec']) ? 'is-invalid' : '' ?>" value="<?= View::e((string)($qs['agent_wrapup_time_sec'] ?? '')) ?>">
                 <?php if (isset($errors['agent_wrapup_time_sec'])): ?><div class="invalid-feedback"><?= View::e($errors['agent_wrapup_time_sec']) ?></div><?php endif; ?>
             </div>
-            <div class="col-md-4 queue-only-field d-flex align-items-end">
-                <div class="form-check form-switch mb-2">
-                    <input class="form-check-input" type="checkbox" name="agent_ring_in_use" id="agent-ring-in-use" value="1" <?= !empty($qs['agent_ring_in_use']) ? 'checked' : '' ?>>
-                    <label class="form-check-label" for="agent-ring-in-use">Получать новые звонки во время разговора</label>
+            <div class="col-md-4 queue-only-field">
+                <!-- d-flex — на вложенном div, а не на самом queue-only-field: у
+                     Bootstrap d-flex это display:flex !important, который иначе
+                     перебивает inline style="display:none", выставляемый JS при
+                     скрытии поля для не-Очереди (подтверждено на проде: JS
+                     корректно ставил display:none, но computed style оставался
+                     flex из-за !important). -->
+                <div class="d-flex align-items-end h-100">
+                    <div class="form-check form-switch mb-2">
+                        <input class="form-check-input" type="checkbox" name="agent_ring_in_use" id="agent-ring-in-use" value="1" <?= !empty($qs['agent_ring_in_use']) ? 'checked' : '' ?>>
+                        <label class="form-check-label" for="agent-ring-in-use">Получать новые звонки во время разговора</label>
+                    </div>
                 </div>
             </div>
 
