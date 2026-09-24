@@ -66,21 +66,36 @@ CREATE TABLE IF NOT EXISTS scenarios (
 -- ----------------------------------------------------------------------------
 -- Маршруты (входящие/исходящие правила маршрутизации)
 -- ----------------------------------------------------------------------------
+-- direction=inbound: используются scenario_id (сценарий обработки) и pattern
+-- ("Шаблон номера звонящего"); trunk не используется.
+-- direction=outbound: используется selection_type, который определяет, какие
+-- ещё поля значимы —
+--   internal_numbers: состав в route_members, outbound_caller_id_id, trunk_id
+--   departments:      department_id, outbound_caller_id_id, trunk_id
+--   dialed_number:    pattern ("Шаблон набираемого номера"), outbound_caller_id_id, trunk_id
+--   complex:          пока никакие дополнительные поля не используются
 CREATE TABLE IF NOT EXISTS routes (
-    id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    name            VARCHAR(150)        NOT NULL,
-    direction       VARCHAR(20)         NOT NULL DEFAULT 'outbound',
-    pattern         VARCHAR(190)        NULL,
-    trunk_id        INT UNSIGNED        NULL,
-    context         VARCHAR(100)        NULL,
-    description     TEXT                NULL,
-    created_by      INT UNSIGNED        NULL,
-    updated_by      INT UNSIGNED        NULL,
-    created_at      DATETIME            NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at      DATETIME            NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    id                      INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name                    VARCHAR(150)        NOT NULL,
+    direction               VARCHAR(20)         NOT NULL DEFAULT 'outbound',
+    scenario_id             INT UNSIGNED        NULL,
+    pattern                 VARCHAR(190)        NULL,
+    selection_type          VARCHAR(20)         NULL,
+    department_id           INT UNSIGNED        NULL,
+    trunk_id                INT UNSIGNED        NULL,
+    outbound_caller_id_id   INT UNSIGNED        NULL,
+    context                 VARCHAR(100)        NULL,
+    description             TEXT                NULL,
+    created_by              INT UNSIGNED        NULL,
+    updated_by              INT UNSIGNED        NULL,
+    created_at              DATETIME            NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at              DATETIME            NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     KEY idx_routes_name (name),
     KEY idx_routes_direction (direction),
+    CONSTRAINT fk_routes_scenario FOREIGN KEY (scenario_id) REFERENCES scenarios(id) ON DELETE SET NULL,
+    CONSTRAINT fk_routes_department FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE SET NULL,
     CONSTRAINT fk_routes_trunk FOREIGN KEY (trunk_id) REFERENCES trunks(id) ON DELETE SET NULL,
+    CONSTRAINT fk_routes_outbound_caller_id FOREIGN KEY (outbound_caller_id_id) REFERENCES extensions(id) ON DELETE SET NULL,
     CONSTRAINT fk_routes_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
     CONSTRAINT fk_routes_updated_by FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -335,6 +350,21 @@ CREATE TABLE IF NOT EXISTS extension_group_members (
     KEY idx_egm_member (member_extension_id),
     CONSTRAINT fk_egm_extension FOREIGN KEY (extension_id) REFERENCES extensions(id) ON DELETE CASCADE,
     CONSTRAINT fk_egm_member FOREIGN KEY (member_extension_id) REFERENCES extensions(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ----------------------------------------------------------------------------
+-- Состав внутренних номеров исходящего маршрута (selection_type = internal_numbers)
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS route_members (
+    id                    INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    route_id              INT UNSIGNED        NOT NULL,
+    member_extension_id   INT UNSIGNED        NOT NULL,
+    position              SMALLINT UNSIGNED   NOT NULL DEFAULT 0,
+    UNIQUE KEY uq_route_members_route_member (route_id, member_extension_id),
+    KEY idx_route_members_route (route_id, position),
+    KEY idx_route_members_member (member_extension_id),
+    CONSTRAINT fk_route_members_route FOREIGN KEY (route_id) REFERENCES routes(id) ON DELETE CASCADE,
+    CONSTRAINT fk_route_members_member FOREIGN KEY (member_extension_id) REFERENCES extensions(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------------------------------------------------------

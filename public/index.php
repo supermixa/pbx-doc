@@ -2,6 +2,20 @@
 
 declare(strict_types=1);
 
+// При запуске через встроенный сервер PHP (php -S ... public/index.php,
+// используется только локально для разработки/тестирования) все запросы,
+// включая статику (assets/js/*.js, assets/css/*.css), идут через этот
+// файл — в отличие от боевого окружения, где статику отдаёт сам веб-сервер
+// (Apache/Nginx), минуя PHP. Без этой проверки любой JS/CSS-файл отдавал
+// бы 404 от роутера приложения. На продакшене PHP_SAPI никогда не равен
+// 'cli-server', так что это ничего не меняет в боевом поведении.
+if (PHP_SAPI === 'cli-server') {
+    $requestedFile = __DIR__ . parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+    if ($requestedFile !== __DIR__ . '/' && is_file($requestedFile)) {
+        return false;
+    }
+}
+
 spl_autoload_register(function (string $class): void {
     $prefix = 'App\\';
     if (!str_starts_with($class, $prefix)) {
@@ -85,6 +99,7 @@ $router->get('/trunks/{id}', fn($p) => (new TrunkController())->show($p));
 
 // ---- Маршруты ---------------------------------------------------------
 $router->get('/routes', fn() => (new RouteController())->index());
+$router->get('/routes/department-members', fn() => (new RouteController())->departmentMembers());
 $router->get('/routes/create', fn() => (new RouteController())->create());
 $router->post('/routes', fn() => (new RouteController())->store());
 $router->get('/routes/{id}/edit', fn($p) => (new RouteController())->edit($p));

@@ -130,6 +130,8 @@ class Labels
         'failover1_timeout_sec' => 'Сценарий №1: таймаут ожидания, сек',
         'failover1_target' => 'Сценарий №1: перевести на',
         'failover2_target' => 'Сценарий №2: перевести на',
+        'selection_type' => 'Тип отбора',
+        'outbound_caller_id_id' => 'Исходящий АОН',
     ];
 
     public static function field(string $field): string
@@ -152,6 +154,18 @@ class Labels
             'inbound' => 'Входящий',
             'outbound' => 'Исходящий',
             default => (string)$direction,
+        };
+    }
+
+    /** Подпись типа отбора исходящего маршрута (selection_type) */
+    public static function routeSelectionTypeLabel(?string $type): string
+    {
+        return match ($type) {
+            'internal_numbers' => 'Внутренние номера',
+            'departments' => 'Подразделения',
+            'dialed_number' => 'Набранный номер',
+            'complex' => 'Сложный',
+            default => '—',
         };
     }
 
@@ -305,6 +319,9 @@ class Labels
         }
         if ($field === 'caller_wait_sound') {
             return self::callerWaitSoundLabel((string)$value);
+        }
+        if ($field === 'selection_type') {
+            return self::routeSelectionTypeLabel((string)$value);
         }
         return (string)$value;
     }

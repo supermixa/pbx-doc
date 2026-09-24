@@ -236,6 +236,33 @@ class ExtensionNumber
         }
     }
 
+    /**
+     * Внешние номера (category=external) со своим trunk_id — для выбора
+     * "Исходящего АОН" в исходящих маршрутах (каждый вариант несёт
+     * data-trunk, чтобы JS мог отфильтровать список по выбранному транку).
+     */
+    public static function externalNumberOptions(): array
+    {
+        $sql = "SELECT id, number, owner, trunk_id FROM extensions WHERE category = 'external' ORDER BY number";
+        $stmt = Db::connection()->query($sql);
+        return $stmt->fetchAll();
+    }
+
+    /**
+     * Внутренние номера (category=internal, type=internal) заданного
+     * подразделения — для отображения состава при выборе "Подразделения"
+     * в качестве типа отбора исходящего маршрута.
+     */
+    public static function departmentInternalNumbers(int $departmentId): array
+    {
+        $sql = "SELECT id, number, owner FROM extensions
+                WHERE category = 'internal' AND type = 'internal' AND department_id = :department_id
+                ORDER BY number";
+        $stmt = Db::connection()->prepare($sql);
+        $stmt->execute(['department_id' => $departmentId]);
+        return $stmt->fetchAll();
+    }
+
     /** Внутренние номера (category=internal, type=internal) — единственно допустимые участники очереди/группы */
     public static function internalMemberCandidates(string $search = '', int $limit = 20): array
     {
