@@ -237,6 +237,32 @@ class ExtensionNumber
     }
 
     /**
+     * Номера заданного типа (category=internal) — для полей конструктора
+     * сценария "Номер очереди" (type=queue) и "Внутренний номер" (type=internal).
+     */
+    public static function optionsByType(string $type): array
+    {
+        $sql = "SELECT id, number, owner FROM extensions WHERE category = 'internal' AND type = :type ORDER BY number";
+        $stmt = Db::connection()->prepare($sql);
+        $stmt->execute(['type' => $type]);
+        return $stmt->fetchAll();
+    }
+
+    /**
+     * Очереди, группы обзвона и внутренние номера — кандидаты для цели
+     * "При неудаче" в блоках "Переключить на очередь"/"Переключить на номер"
+     * конструктора сценария.
+     */
+    public static function scenarioFailureTargetCandidates(): array
+    {
+        $sql = "SELECT id, number, owner, type FROM extensions
+                WHERE category = 'internal' AND type IN ('queue', 'ivr', 'internal')
+                ORDER BY number";
+        $stmt = Db::connection()->query($sql);
+        return $stmt->fetchAll();
+    }
+
+    /**
      * Внешние номера (category=external) со своим trunk_id — для выбора
      * "Исходящего АОН" в исходящих маршрутах (каждый вариант несёт
      * data-trunk, чтобы JS мог отфильтровать список по выбранному транку).

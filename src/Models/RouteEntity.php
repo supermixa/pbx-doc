@@ -112,6 +112,13 @@ class RouteEntity
         return (int)Db::connection()->query('SELECT COUNT(*) FROM routes')->fetchColumn();
     }
 
+    /** Исходящие маршруты — для поля "Маршрут на выход" блока "Перевести на внешний номер" */
+    public static function outboundOptions(): array
+    {
+        $stmt = Db::connection()->query("SELECT id, name FROM routes WHERE direction = 'outbound' ORDER BY name");
+        return $stmt->fetchAll();
+    }
+
     // ------------------------------------------------------------------
     // Состав внутренних номеров (selection_type = internal_numbers)
     // ------------------------------------------------------------------

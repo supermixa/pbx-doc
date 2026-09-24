@@ -132,6 +132,7 @@ class Labels
         'failover2_target' => 'Сценарий №2: перевести на',
         'selection_type' => 'Тип отбора',
         'outbound_caller_id_id' => 'Исходящий АОН',
+        'flow_json' => 'Логика сценария (блоки)',
     ];
 
     public static function field(string $field): string
@@ -155,6 +156,42 @@ class Labels
             'outbound' => 'Исходящий',
             default => (string)$direction,
         };
+    }
+
+    /** Подпись типа блока конструктора сценария */
+    public static function scenarioBlockTypeLabel(?string $type): string
+    {
+        return match ($type) {
+            'play_file' => 'Проиграть файл',
+            'ai_agent' => 'ИИ агент',
+            'queue_transfer' => 'Переключить на очередь',
+            'number_transfer' => 'Переключить на номер',
+            'script' => 'Скрипт',
+            'notify_tg' => 'Оповещение TG',
+            'notify_email' => 'Оповещение E-mail',
+            'hangup' => 'Положить трубку',
+            'external_transfer' => 'Перевести на внешний номер',
+            'business_hours' => 'Время работы сценария',
+            default => (string)$type,
+        };
+    }
+
+    private const WEEKDAY_SHORT = [
+        'mon' => 'Пн', 'tue' => 'Вт', 'wed' => 'Ср', 'thu' => 'Чт',
+        'fri' => 'Пт', 'sat' => 'Сб', 'sun' => 'Вс',
+    ];
+
+    public static function weekdayShortLabel(string $day): string
+    {
+        return self::WEEKDAY_SHORT[$day] ?? $day;
+    }
+
+    /** "Пн, Ср, Пт" из ['mon','wed','fri'] — сохраняет порядок Пн..Вс, а не порядок в массиве */
+    public static function weekdaysShortList(array $days): string
+    {
+        $ordered = array_keys(self::WEEKDAY_SHORT);
+        $selected = array_intersect($ordered, $days);
+        return implode(', ', array_map(fn($d) => self::WEEKDAY_SHORT[$d], $selected));
     }
 
     /** Подпись типа отбора исходящего маршрута (selection_type) */
@@ -322,6 +359,11 @@ class Labels
         }
         if ($field === 'selection_type') {
             return self::routeSelectionTypeLabel((string)$value);
+        }
+        if ($field === 'flow_json') {
+            $blocks = json_decode((string)$value, true);
+            $count = is_array($blocks) ? count($blocks) : 0;
+            return $count > 0 ? "блоков: {$count}" : '(пусто)';
         }
         return (string)$value;
     }

@@ -1,6 +1,7 @@
 <?php
 use App\Core\Auth;
 use App\Core\View;
+use App\Models\Scenario;
 ?>
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
     <h3 class="mb-0">Сценарии</h3>
@@ -11,7 +12,7 @@ use App\Core\View;
 
 <form method="get" class="mb-3">
     <div class="input-group" style="max-width: 400px">
-        <input type="text" name="q" class="form-control" placeholder="Поиск по названию, контексту" value="<?= View::e($search) ?>">
+        <input type="text" name="q" class="form-control" placeholder="Поиск по названию" value="<?= View::e($search) ?>">
         <button class="btn btn-outline-secondary" type="submit">Найти</button>
     </div>
 </form>
@@ -22,7 +23,7 @@ use App\Core\View;
             <thead>
                 <tr>
                     <th>Название</th>
-                    <th>Контекст</th>
+                    <th>Блоков</th>
                     <th>Изменён</th>
                 </tr>
             </thead>
@@ -33,7 +34,7 @@ use App\Core\View;
             <?php foreach ($scenarios as $s): ?>
                 <tr style="cursor:pointer" onclick="location.href='/scenarios/<?= (int)$s['id'] ?>'">
                     <td><a href="/scenarios/<?= (int)$s['id'] ?>" class="text-decoration-none fw-semibold"><?= View::e($s['name']) ?></a></td>
-                    <td><?= View::e($s['context'] ?: '—') ?></td>
+                    <td class="text-muted"><?= count(Scenario::decodeFlow($s['flow_json'] ?? null)) ?></td>
                     <td class="text-muted small"><?= View::e($s['updated_by_name'] ?? '—') ?>, <?= View::e(date('d.m.Y H:i', strtotime($s['updated_at']))) ?></td>
                 </tr>
             <?php endforeach; ?>

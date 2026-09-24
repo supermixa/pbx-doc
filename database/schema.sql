@@ -48,12 +48,19 @@ CREATE TABLE IF NOT EXISTS trunks (
 -- ----------------------------------------------------------------------------
 -- Сценарии (диалплан / IVR)
 -- ----------------------------------------------------------------------------
+-- context и dialplan_code оставлены для совместимости со старыми записями,
+-- но приложение их больше не показывает и не редактирует — логику сценария
+-- теперь описывает визуальный конструктор блоков (flow_json, JSON-массив
+-- упорядоченных блоков: "Проиграть файл", "ИИ агент", "Переключить на
+-- очередь/номер", "Скрипт", "Оповещение TG/E-mail", "Положить трубку",
+-- "Перевести на внешний номер", "Время работы сценария").
 CREATE TABLE IF NOT EXISTS scenarios (
     id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     name            VARCHAR(150)        NOT NULL,
     context         VARCHAR(100)        NULL,
     description     TEXT                NULL,
     dialplan_code   TEXT                NULL,
+    flow_json       LONGTEXT            NULL,
     created_by      INT UNSIGNED        NULL,
     updated_by      INT UNSIGNED        NULL,
     created_at      DATETIME            NOT NULL DEFAULT CURRENT_TIMESTAMP,
