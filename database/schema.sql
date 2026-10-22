@@ -30,7 +30,15 @@ CREATE TABLE IF NOT EXISTS trunks (
     id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     name            VARCHAR(150)        NOT NULL,
     type            VARCHAR(30)         NOT NULL DEFAULT 'PJSIP',
+    -- Провайдер из справочника «Провайдеры». Таблица providers создаётся
+    -- ниже — это допустимо, т.к. FOREIGN_KEY_CHECKS = 0 в начале файла.
+    provider_id     INT UNSIGNED        NULL,
+    -- Устаревшее текстовое поле провайдера (до справочника). Новые записи
+    -- его не заполняют; оставлено для значений, введённых вручную раньше
+    -- и не сопоставленных со справочником (миграция 0007).
     provider        VARCHAR(150)        NULL,
+    -- «Емкость СЛ» — число соединительных линий
+    line_capacity   INT UNSIGNED        NULL,
     host            VARCHAR(190)        NULL,
     context         VARCHAR(100)        NULL,
     status          VARCHAR(20)         NOT NULL DEFAULT 'active',
@@ -41,6 +49,7 @@ CREATE TABLE IF NOT EXISTS trunks (
     updated_at      DATETIME            NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     KEY idx_trunks_name (name),
     KEY idx_trunks_status (status),
+    CONSTRAINT fk_trunks_provider FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE SET NULL,
     CONSTRAINT fk_trunks_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
     CONSTRAINT fk_trunks_updated_by FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

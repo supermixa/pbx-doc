@@ -28,7 +28,19 @@ use App\Core\View;
             <div class="card-body">
                 <dl class="row mb-0">
                     <dt class="col-sm-4">Тип</dt><dd class="col-sm-8"><?= View::e($trunk['type']) ?></dd>
-                    <dt class="col-sm-4">Провайдер</dt><dd class="col-sm-8"><?= View::e($trunk['provider'] ?: '—') ?></dd>
+                    <dt class="col-sm-4">Провайдер</dt>
+                    <dd class="col-sm-8">
+                        <?php if (!empty($trunk['provider_name'])): ?>
+                            <a href="/providers/<?= (int)$trunk['provider_id'] ?>"><?= View::e($trunk['provider_name']) ?></a>
+                        <?php elseif (!empty($trunk['provider'])): ?>
+                            <span class="fst-italic"><?= View::e($trunk['provider']) ?></span>
+                            <span class="badge text-bg-warning">введён вручную</span>
+                            <div class="text-muted small">Не связан со справочником «Провайдеры» — отредактируйте транк и выберите провайдера из списка.</div>
+                        <?php else: ?>
+                            —
+                        <?php endif; ?>
+                    </dd>
+                    <dt class="col-sm-4">Емкость СЛ</dt><dd class="col-sm-8"><?= $trunk['line_capacity'] !== null ? (int)$trunk['line_capacity'] : '—' ?></dd>
                     <dt class="col-sm-4">Хост</dt><dd class="col-sm-8"><?= View::e($trunk['host'] ?: '—') ?></dd>
                     <dt class="col-sm-4">Контекст</dt><dd class="col-sm-8"><?= View::e($trunk['context'] ?: '—') ?></dd>
                     <dt class="col-sm-4">Статус</dt>

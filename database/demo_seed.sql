@@ -54,6 +54,11 @@ INSERT INTO providers (name, support_phone, note, created_by, updated_by)
 VALUES
   ('Билайн Бизнес', '8-800-700-8000', 'Основной поставщик городских номеров.', 1, 1);
 
+-- Транк «Билайн SIP» — провайдер из справочника; «МТС Резерв» оставлен с
+-- провайдером, введённым вручную (так выглядят старые записи до миграции 0007).
+UPDATE trunks SET provider_id = 1, provider = NULL, line_capacity = 10 WHERE name = 'Билайн SIP';
+UPDATE trunks SET line_capacity = 4 WHERE name = 'МТС Резерв';
+
 INSERT INTO provider_managers (provider_id, name, phone, sort_order)
 VALUES
   (1, 'Смирнова А.А.', '+7 900 111-22-33', 0),

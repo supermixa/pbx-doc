@@ -12,6 +12,7 @@ use App\Core\View;
 use App\Models\AuditLog;
 use App\Models\LegalEntity;
 use App\Models\Provider;
+use App\Models\Trunk;
 use Throwable;
 
 class ProviderController
@@ -46,6 +47,7 @@ class ProviderController
             'provider' => $provider,
             'managers' => Provider::managers($id),
             'legalEntityLinks' => Provider::legalEntityLinks($id),
+            'trunks' => Trunk::forProvider($id),
             'history' => AuditLog::forEntity('provider', $id),
         ]);
     }

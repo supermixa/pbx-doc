@@ -23,6 +23,7 @@ use App\Core\View;
             <thead>
                 <tr>
                     <th>Название</th>
+                    <th>Провайдер</th>
                     <th>Тип</th>
                     <th>Хост</th>
                     <th>Статус</th>
@@ -31,11 +32,21 @@ use App\Core\View;
             </thead>
             <tbody>
             <?php if (empty($trunks)): ?>
-                <tr><td colspan="5" class="text-center text-muted py-4">Записей не найдено</td></tr>
+                <tr><td colspan="6" class="text-center text-muted py-4">Записей не найдено</td></tr>
             <?php endif; ?>
             <?php foreach ($trunks as $t): ?>
                 <tr style="cursor:pointer" onclick="location.href='/trunks/<?= (int)$t['id'] ?>'">
                     <td><a href="/trunks/<?= (int)$t['id'] ?>" class="text-decoration-none fw-semibold"><?= View::e($t['name']) ?></a></td>
+                    <td>
+                        <?php if (!empty($t['provider_name'])): ?>
+                            <?= View::e($t['provider_name']) ?>
+                        <?php elseif (!empty($t['provider'])): ?>
+                            <span class="text-muted fst-italic"><?= View::e($t['provider']) ?></span>
+                            <span class="badge text-bg-warning" title="Провайдер введён вручную и не связан со справочником — откройте транк и выберите провайдера из списка">вручную</span>
+                        <?php else: ?>
+                            <span class="text-muted">—</span>
+                        <?php endif; ?>
+                    </td>
                     <td><?= View::e($t['type']) ?></td>
                     <td><?= View::e($t['host']) ?></td>
                     <td><span class="badge <?= $t['status'] === 'active' ? 'text-bg-success' : 'text-bg-secondary' ?>"><?= View::e(Labels::statusLabel($t['status'])) ?></span></td>

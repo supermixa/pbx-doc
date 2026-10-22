@@ -75,6 +75,26 @@ use App\Core\View;
             </div>
         </div>
 
+        <div class="card mb-3">
+            <div class="card-header bg-white"><strong>Транки</strong></div>
+            <div class="card-body p-0">
+                <?php if (empty($trunks)): ?>
+                    <p class="text-muted p-3 mb-0">Транки не привязаны.</p>
+                <?php else: ?>
+                    <ul class="list-group list-group-flush">
+                        <?php foreach ($trunks as $t): ?>
+                            <li class="list-group-item d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                <a href="/trunks/<?= (int)$t['id'] ?>"><?= View::e($t['name']) ?></a>
+                                <span class="text-muted small">
+                                    <?= View::e($t['type']) ?><?= $t['line_capacity'] !== null ? ' · СЛ: ' . (int)$t['line_capacity'] : '' ?>
+                                </span>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                <?php endif; ?>
+            </div>
+        </div>
+
         <p class="text-muted small">
             Создан: <?= View::e($provider['created_by_name'] ?? '—') ?>, <?= View::e(date('d.m.Y H:i', strtotime($provider['created_at']))) ?><br>
             Изменён: <?= View::e($provider['updated_by_name'] ?? '—') ?>, <?= View::e(date('d.m.Y H:i', strtotime($provider['updated_at']))) ?>

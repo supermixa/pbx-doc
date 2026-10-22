@@ -9,20 +9,33 @@ class Trunk
     public const STATUSES = ['active', 'inactive'];
     public const TYPES = ['PJSIP', 'SIP', 'IAX2', 'DAHDI', 'Other'];
 
-    private static array $fillable = ['name', 'type', 'provider', 'host', 'context', 'status', 'description'];
+    /**
+     * provider_id — провайдер из справочника «Провайдеры».
+     * provider — устаревшее текстовое поле (значение, введённое вручную до
+     * появления справочника и не сопоставленное с ним миграцией 0007).
+     * Новые записи его не заполняют, см. TrunkController::validate().
+     */
+    private static array $fillable = [
+        'name', 'type', 'provider_id', 'provider', 'line_capacity', 'host', 'context', 'status', 'description',
+    ];
+
+    private const SELECT_FROM = 'SELECT t.*, p.name AS provider_name,
+                       cu.name AS created_by_name, uu.name AS updated_by_name
+                FROM trunks t
+                LEFT JOIN providers p ON p.id = t.provider_id
+                LEFT JOIN users cu ON cu.id = t.created_by
+                LEFT JOIN users uu ON uu.id = t.updated_by';
 
     public static function all(string $search = ''): array
     {
-        $sql = 'SELECT t.*, cu.name AS created_by_name, uu.name AS updated_by_name
-                FROM trunks t
-                LEFT JOIN users cu ON cu.id = t.created_by
-                LEFT JOIN users uu ON uu.id = t.updated_by';
+        $sql = self::SELECT_FROM;
         $params = [];
         if ($search !== '') {
-            $sql .= ' WHERE t.name LIKE :search1 OR t.provider LIKE :search2 OR t.host LIKE :search3';
+            $sql .= ' WHERE t.name LIKE :search1 OR p.name LIKE :search2 OR t.provider LIKE :search3 OR t.host LIKE :search4';
             $params['search1'] = "%{$search}%";
             $params['search2'] = "%{$search}%";
             $params['search3'] = "%{$search}%";
+            $params['search4'] = "%{$search}%";
         }
         $sql .= ' ORDER BY t.name';
         $stmt = Db::connection()->prepare($sql);
@@ -32,11 +45,7 @@ class Trunk
 
     public static function find(int $id): ?array
     {
-        $sql = 'SELECT t.*, cu.name AS created_by_name, uu.name AS updated_by_name
-                FROM trunks t
-                LEFT JOIN users cu ON cu.id = t.created_by
-                LEFT JOIN users uu ON uu.id = t.updated_by
-                WHERE t.id = :id';
+        $sql = self::SELECT_FROM . ' WHERE t.id = :id';
         $stmt = Db::connection()->prepare($sql);
         $stmt->execute(['id' => $id]);
         $row = $stmt->fetch();
@@ -98,6 +107,14 @@ class Trunk
     public static function options(): array
     {
         $stmt = Db::connection()->query('SELECT id, name FROM trunks ORDER BY name');
+        return $stmt->fetchAll();
+    }
+
+    /** Транки провайдера — для карточки провайдера */
+    public static function forProvider(int $providerId): array
+    {
+        $stmt = Db::connection()->prepare('SELECT id, name, type, line_capacity, status FROM trunks WHERE provider_id = :id ORDER BY name');
+        $stmt->execute(['id' => $providerId]);
         return $stmt->fetchAll();
     }
 }
