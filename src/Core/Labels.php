@@ -32,6 +32,8 @@ class Labels
             'legal_entity' => 'Юрлицо',
             'provider' => 'Провайдер',
             'calltracking_target' => 'Цель Calltracking',
+            'calltracking' => 'Calltracking (цели подразделения)',
+            'calltracking_goal' => 'Цель Calltracking',
             'music_file' => 'Файл музыки',
             default => $type,
         };
@@ -51,6 +53,8 @@ class Labels
             'legal_entity' => '/legal-entities/' . $id,
             'provider' => '/providers/' . $id,
             'calltracking_target' => '/calltracking/' . $id,
+            'calltracking' => '/calltracking/departments/' . $id,
+            'calltracking_goal' => '/calltracking/goals/' . $id,
             'music_file' => '/music/' . $id,
             default => '#',
         };
@@ -113,6 +117,7 @@ class Labels
         'legal_entities' => 'Обслуживаемые юрлица',
         'calltracking_target_id' => 'Цель Calltracking',
         'target' => 'Цель',
+        'goals' => 'Цели',
         'title' => 'Название',
         'original_filename' => 'Имя файла',
         'mime_type' => 'Формат',

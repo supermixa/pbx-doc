@@ -53,6 +53,7 @@ function nav_active(string $path): string
                         <li><a class="dropdown-item" href="/legal-entities">Юрлица</a></li>
                         <li><a class="dropdown-item" href="/providers">Провайдеры</a></li>
                         <li><a class="dropdown-item" href="/calltracking">Calltracking</a></li>
+                        <li><a class="dropdown-item ps-4" href="/calltracking/goals">↳ Цели Calltracking</a></li>
                         <li><a class="dropdown-item" href="/music">Музыка</a></li>
                     </ul>
                 </li>
@@ -97,7 +98,7 @@ function nav_active(string $path): string
 </main>
 
 <footer class="text-center text-muted small pb-4">
-    PBX Doc — документация Asterisk
+    PBX Doc — документация Asterisk · <?= View::e(\App\Core\Version::label()) ?>
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>

@@ -131,7 +131,7 @@ $qs = $queueSettings ?? null;
                 <select name="calltracking_target_id" id="calltracking-target-select" class="form-select">
                     <option value="">— сначала выберите подразделение —</option>
                     <?php foreach ($calltrackingTargets as $ct): ?>
-                        <option value="<?= (int)$ct['id'] ?>" data-department="<?= (int)($ct['department_id'] ?? 0) ?>" <?= (int)($extension['calltracking_target_id'] ?? 0) === (int)$ct['id'] ? 'selected' : '' ?>><?= View::e($ct['target']) ?></option>
+                        <option value="<?= (int)$ct['id'] ?>" data-department="<?= (int)($ct['department_id'] ?? 0) ?>" <?= (int)($extension['calltracking_target_id'] ?? 0) === (int)$ct['id'] ? 'selected' : '' ?>><?= View::e($ct['goal_name']) ?></option>
                     <?php endforeach; ?>
                 </select>
                 <div class="form-text">Список целей ограничен выбранным подразделением.</div>

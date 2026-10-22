@@ -68,10 +68,15 @@ INSERT INTO provider_legal_entities (provider_id, legal_entity_id, manager_id, c
 VALUES
   (1, 1, 1, '№ БИЗ-2024-118');
 
-INSERT INTO calltracking_targets (department_id, target, created_by, updated_by)
+INSERT INTO calltracking_goals (name, created_by, updated_by)
 VALUES
-  (1, 'Реклама Яндекс.Директ', 1, 1),
-  (1, 'Реклама ВКонтакте', 1, 1);
+  ('Реклама Яндекс.Директ', 1, 1),
+  ('Реклама ВКонтакте', 1, 1);
+
+INSERT INTO calltracking_targets (department_id, goal_id, created_by, updated_by)
+VALUES
+  (1, 1, 1, 1),
+  (1, 2, 1, 1);
 
 INSERT INTO extensions (number, category, type, owner, context, scenario_id, department_id, legal_entity_id, provider_id, trunk_id, calltracking_target_id, status, description, created_by, updated_by)
 VALUES

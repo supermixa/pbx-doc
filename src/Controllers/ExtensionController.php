@@ -343,7 +343,7 @@ class ExtensionController
             'legalEntities' => LegalEntity::options(),
             'providers' => Provider::optionsWithLegalEntities(),
             'trunks' => Trunk::options(),
-            'calltrackingTargets' => CalltrackingTarget::all(),
+            'calltrackingTargets' => CalltrackingTarget::optionsWithDepartments(),
             'musicFiles' => MusicFile::options(),
             'groupMembers' => $extensionId ? ExtensionNumber::groupMembers($extensionId) : [],
             'queueSettings' => $extensionId ? ExtensionNumber::queueSettings($extensionId) : null,

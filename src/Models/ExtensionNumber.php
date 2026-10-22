@@ -41,12 +41,13 @@ class ExtensionNumber
                 LEFT JOIN providers pr ON pr.id = e.provider_id
                 LEFT JOIN trunks tr ON tr.id = e.trunk_id
                 LEFT JOIN calltracking_targets ct ON ct.id = e.calltracking_target_id
+                LEFT JOIN calltracking_goals ctg ON ctg.id = ct.goal_id
                 LEFT JOIN users cu ON cu.id = e.created_by
                 LEFT JOIN users uu ON uu.id = e.updated_by';
 
     private const SELECT_COLUMNS = 'e.*, s.name AS scenario_name, d.name AS department_name,
                        le.name AS legal_entity_name, pr.name AS provider_name, tr.name AS trunk_name,
-                       ct.target AS calltracking_target_name,
+                       ctg.name AS calltracking_target_name, ct.goal_id AS calltracking_goal_id,
                        cu.name AS created_by_name, uu.name AS updated_by_name';
 
     public static function all(string $search = '', string $category = '', string $type = ''): array

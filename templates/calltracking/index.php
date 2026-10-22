@@ -4,14 +4,17 @@ use App\Core\View;
 ?>
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
     <h3 class="mb-0">Calltracking</h3>
-    <?php if (Auth::canEdit()): ?>
-        <a href="/calltracking/create" class="btn btn-primary">+ Добавить цель</a>
-    <?php endif; ?>
+    <div class="d-flex gap-2">
+        <a href="/calltracking/goals" class="btn btn-outline-secondary">Справочник целей</a>
+        <?php if (Auth::canEdit()): ?>
+            <a href="/calltracking/create" class="btn btn-primary">+ Добавить подразделение</a>
+        <?php endif; ?>
+    </div>
 </div>
 
 <form method="get" class="mb-3">
     <div class="input-group" style="max-width: 400px">
-        <input type="text" name="q" class="form-control" placeholder="Поиск по цели, подразделению" value="<?= View::e($search) ?>">
+        <input type="text" name="q" class="form-control" placeholder="Поиск по подразделению, цели" value="<?= View::e($search) ?>">
         <button class="btn btn-outline-secondary" type="submit">Найти</button>
     </div>
 </form>
@@ -21,20 +24,20 @@ use App\Core\View;
         <table class="table table-hover mb-0">
             <thead>
                 <tr>
-                    <th>Подразделение</th>
-                    <th>Цель</th>
-                    <th>Изменён</th>
+                    <th style="width: 30%">Подразделение</th>
+                    <th>Цели</th>
                 </tr>
             </thead>
             <tbody>
-            <?php if (empty($targets)): ?>
-                <tr><td colspan="3" class="text-center text-muted py-4">Записей не найдено</td></tr>
+            <?php if (empty($rows)): ?>
+                <tr><td colspan="2" class="text-center text-muted py-4">Записей не найдено</td></tr>
             <?php endif; ?>
-            <?php foreach ($targets as $t): ?>
-                <tr style="cursor:pointer" onclick="location.href='/calltracking/<?= (int)$t['id'] ?>'">
-                    <td><?= View::e($t['department_name'] ?? '—') ?></td>
-                    <td><a href="/calltracking/<?= (int)$t['id'] ?>" class="text-decoration-none fw-semibold"><?= View::e($t['target']) ?></a></td>
-                    <td class="text-muted small"><?= View::e($t['updated_by_name'] ?? '—') ?>, <?= View::e(date('d.m.Y H:i', strtotime($t['updated_at']))) ?></td>
+            <?php foreach ($rows as $r): ?>
+                <tr>
+                    <td><a href="/calltracking/departments/<?= (int)$r['department_id'] ?>" class="text-decoration-none fw-semibold"><?= View::e($r['department_name']) ?></a></td>
+                    <td>
+                        <?php foreach ($r['goals'] as $i => $g): ?><?= $i > 0 ? ', ' : '' ?><a href="/calltracking/goals/<?= (int)$g['id'] ?>"><?= View::e($g['name']) ?></a><?php endforeach; ?>
+                    </td>
                 </tr>
             <?php endforeach; ?>
             </tbody>

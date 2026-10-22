@@ -236,19 +236,40 @@ CREATE TABLE IF NOT EXISTS provider_legal_entities (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------------------------------------------------------
--- Calltracking (справочник целей звонков по подразделениям)
+-- Calltracking
+-- calltracking_goals — подчинённый справочник «Цели» (каждая цель один раз).
+-- calltracking_targets — связь «подразделение — цель»: у подразделения
+-- может быть несколько целей, одна цель может использоваться в нескольких
+-- подразделениях. Номера CallTracking ссылаются на строку этой связи
+-- (extensions.calltracking_target_id). target — устаревший текст цели,
+-- вводившийся вручную до миграции 0008; приложение его не использует.
 -- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS calltracking_goals (
+    id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name            VARCHAR(190)        NOT NULL,
+    created_by      INT UNSIGNED        NULL,
+    updated_by      INT UNSIGNED        NULL,
+    created_at      DATETIME            NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      DATETIME            NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_calltracking_goals_name (name),
+    CONSTRAINT fk_calltracking_goals_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+    CONSTRAINT fk_calltracking_goals_updated_by FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS calltracking_targets (
     id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     department_id   INT UNSIGNED        NOT NULL,
-    target          VARCHAR(190)        NOT NULL,
+    goal_id         INT UNSIGNED        NOT NULL,
+    target          VARCHAR(190)        NULL,
     created_by      INT UNSIGNED        NULL,
     updated_by      INT UNSIGNED        NULL,
     created_at      DATETIME            NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at      DATETIME            NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     KEY idx_calltracking_targets_department (department_id),
     KEY idx_calltracking_targets_target (target),
+    UNIQUE KEY uq_calltracking_targets_department_goal (department_id, goal_id),
     CONSTRAINT fk_calltracking_targets_department FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE CASCADE,
+    CONSTRAINT fk_calltracking_targets_goal FOREIGN KEY (goal_id) REFERENCES calltracking_goals(id),
     CONSTRAINT fk_calltracking_targets_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
     CONSTRAINT fk_calltracking_targets_updated_by FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -29,6 +29,7 @@ spl_autoload_register(function (string $class): void {
 });
 
 use App\Controllers\AuthController;
+use App\Controllers\CalltrackingGoalController;
 use App\Controllers\CalltrackingTargetController;
 use App\Controllers\DashboardController;
 use App\Controllers\DepartmentController;
@@ -185,13 +186,25 @@ $router->get('/music/{id}/stream', fn($p) => (new MusicController())->stream($p)
 $router->get('/music/{id}', fn($p) => (new MusicController())->show($p));
 
 // ---- Calltracking -----------------------------------------------------
+// Подчинённый справочник «Цели» — литеральные пути до /calltracking/{id}
+$router->get('/calltracking/goals', fn() => (new CalltrackingGoalController())->index());
+$router->get('/calltracking/goals/create', fn() => (new CalltrackingGoalController())->create());
+$router->post('/calltracking/goals', fn() => (new CalltrackingGoalController())->store());
+$router->post('/calltracking/goals/quick-create', fn() => (new CalltrackingGoalController())->quickCreate());
+$router->get('/calltracking/goals/{id}/edit', fn($p) => (new CalltrackingGoalController())->edit($p));
+$router->post('/calltracking/goals/{id}/edit', fn($p) => (new CalltrackingGoalController())->update($p));
+$router->post('/calltracking/goals/{id}/delete', fn($p) => (new CalltrackingGoalController())->destroy($p));
+$router->get('/calltracking/goals/{id}', fn($p) => (new CalltrackingGoalController())->show($p));
+// Подразделения и их цели
 $router->get('/calltracking', fn() => (new CalltrackingTargetController())->index());
 $router->get('/calltracking/create', fn() => (new CalltrackingTargetController())->create());
 $router->post('/calltracking', fn() => (new CalltrackingTargetController())->store());
-$router->get('/calltracking/{id}/edit', fn($p) => (new CalltrackingTargetController())->edit($p));
-$router->post('/calltracking/{id}/edit', fn($p) => (new CalltrackingTargetController())->update($p));
-$router->post('/calltracking/{id}/delete', fn($p) => (new CalltrackingTargetController())->destroy($p));
-$router->get('/calltracking/{id}', fn($p) => (new CalltrackingTargetController())->show($p));
+$router->get('/calltracking/departments/{id}/edit', fn($p) => (new CalltrackingTargetController())->edit($p));
+$router->post('/calltracking/departments/{id}/edit', fn($p) => (new CalltrackingTargetController())->update($p));
+$router->post('/calltracking/departments/{id}/delete', fn($p) => (new CalltrackingTargetController())->destroy($p));
+$router->get('/calltracking/departments/{id}', fn($p) => (new CalltrackingTargetController())->show($p));
+// Старые ссылки /calltracking/{id} (из журнала изменений) -> карточка цели
+$router->get('/calltracking/{id}', fn($p) => (new CalltrackingTargetController())->legacyRedirect($p));
 
 // ---- Пользователи (только администратор) -------------------------------
 $router->get('/users', fn() => (new UserController())->index());

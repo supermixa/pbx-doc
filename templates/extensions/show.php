@@ -60,7 +60,7 @@ use App\Core\View;
                             <dt class="col-sm-4">Цель</dt>
                             <dd class="col-sm-8">
                                 <?php if (!empty($extension['calltracking_target_id'])): ?>
-                                    <a href="/calltracking/<?= (int)$extension['calltracking_target_id'] ?>"><?= View::e($extension['calltracking_target_name']) ?></a>
+                                    <a href="/calltracking/goals/<?= (int)$extension['calltracking_goal_id'] ?>"><?= View::e($extension['calltracking_target_name']) ?></a>
                                 <?php else: ?>—<?php endif; ?>
                             </dd>
                         <?php endif; ?>
