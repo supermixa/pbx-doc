@@ -75,6 +75,35 @@ $qs = $queueSettings ?? null;
                 </select>
             </div>
 
+            <?php
+            // АОН (только внутренний номер с типом «Внутренний»): подпись выбранного внешнего номера
+            $callerIdId = (int)($extension['caller_id_extension_id'] ?? 0);
+            $callerIdLabel = null;
+            if ($callerIdId > 0) {
+                $cidRow = ExtensionNumber::findRaw($callerIdId);
+                if ($cidRow) {
+                    $callerIdLabel = $cidRow['number'] . ' — ' . Labels::extensionTypeLabel($cidRow['type'], 'external') . ($cidRow['owner'] ? ' (' . $cidRow['owner'] . ')' : '');
+                }
+            }
+            ?>
+            <div class="col-md-4" id="caller-id-field">
+                <label class="form-label">АОН</label>
+                <div class="position-relative">
+                    <input type="text" id="caller-id-search" class="form-control <?= isset($errors['caller_id_extension_id']) ? 'is-invalid' : '' ?>" autocomplete="off" inputmode="numeric" placeholder="Введите от 3 цифр внешнего номера">
+                    <div class="list-group position-absolute w-100 shadow-sm" id="caller-id-results" style="z-index: 20; max-height: 260px; overflow-y: auto; display:none;"></div>
+                    <?php if (isset($errors['caller_id_extension_id'])): ?><div class="invalid-feedback"><?= View::e($errors['caller_id_extension_id']) ?></div><?php endif; ?>
+                </div>
+                <div id="caller-id-selected" class="mt-1">
+                    <?php if ($callerIdLabel): ?>
+                        <span class="badge text-bg-light text-dark border"><?= View::e($callerIdLabel) ?> <a href="#" id="caller-id-clear" class="text-danger text-decoration-none" title="Очистить">✕</a></span>
+                    <?php else: ?>
+                        <span class="text-muted small">не задан</span>
+                    <?php endif; ?>
+                </div>
+                <input type="hidden" name="caller_id_extension_id" id="caller-id-value" value="<?= $callerIdLabel ? $callerIdId : '' ?>">
+                <div class="form-text">Внешний номер «Городской» или «Сотовый»; можно оставить пустым.</div>
+            </div>
+
             <div class="col-md-4 external-field" id="legal-entity-field">
                 <label class="form-label">Юрлицо</label>
                 <select name="legal_entity_id" id="legal-entity-select" class="form-select">

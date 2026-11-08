@@ -5,11 +5,14 @@ namespace App\Controllers;
 use App\Core\Auth;
 use App\Core\AuditLogger;
 use App\Core\Csrf;
+use App\Core\Export\Exporter;
+use App\Core\ExtensionTable;
 use App\Core\Flash;
 use App\Core\Validator;
 use App\Core\View;
 use App\Models\AuditLog;
 use App\Models\Department;
+use App\Models\ExtensionNumber;
 
 class DepartmentController
 {
@@ -40,8 +43,39 @@ class DepartmentController
         View::render('departments/show', [
             'title' => $department['name'],
             'department' => $department,
+            'numberGroups' => ExtensionTable::groupByType(ExtensionNumber::forDepartment((int)$department['id'])),
             'history' => AuditLog::forEntity('department', (int)$department['id']),
         ]);
+    }
+
+    /**
+     * Выгрузка номеров подразделения (по типам) в Excel или PDF:
+     * /departments/{id}/export?format=xlsx|pdf
+     */
+    public function export(array $params): void
+    {
+        if (!Auth::requireLogin()) {
+            return;
+        }
+        $department = Department::find((int)$params['id']);
+        if (!$department) {
+            http_response_code(404);
+            View::render('errors/404', []);
+            return;
+        }
+        $format = ($_GET['format'] ?? 'xlsx') === 'pdf' ? 'pdf' : 'xlsx';
+        $rows = ExtensionNumber::forDepartment((int)$department['id']);
+
+        $sections = [];
+        foreach (ExtensionTable::groupByType($rows) as $g) {
+            $sections[] = ExtensionTable::section(
+                $g['label'] . ' (' . count($g['rows']) . ')',
+                ExtensionTable::columnsForGroup($g['category'], $g['type']),
+                $g['rows']
+            );
+        }
+        $title = 'Подразделение «' . $department['name'] . '» — номера';
+        Exporter::send($format, 'Номера — ' . $department['name'], $title, 'Всего номеров: ' . count($rows), $sections);
     }
 
     public function create(): void

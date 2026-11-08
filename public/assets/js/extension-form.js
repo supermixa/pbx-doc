@@ -76,6 +76,19 @@
         }
 
         toggleMohVisibility();
+        toggleCallerIdField();
+    }
+
+    // АОН — только у внутреннего номера с типом «Внутренний»
+    function toggleCallerIdField() {
+        var field = document.getElementById('caller-id-field');
+        var value = document.getElementById('caller-id-value');
+        if (!field || !value) {
+            return;
+        }
+        var show = categorySelect.value === 'internal' && typeInternalSelect.value === 'internal';
+        field.style.display = show ? '' : 'none';
+        value.disabled = !show;
     }
 
     function toggleByCategory() {
@@ -377,6 +390,85 @@
             }
         });
     });
+
+    // ------------------------------------------------------------------
+    // АОН внутреннего номера — поиск внешних «Городской»/«Сотовый» от 3 цифр
+    // ------------------------------------------------------------------
+    (function () {
+        var input = document.getElementById('caller-id-search');
+        var results = document.getElementById('caller-id-results');
+        var selectedBox = document.getElementById('caller-id-selected');
+        var valueField = document.getElementById('caller-id-value');
+        if (!input || !results || !selectedBox || !valueField) {
+            return;
+        }
+        var notSet = '<span class="text-muted small">не задан</span>';
+
+        function showHint(text) {
+            results.innerHTML = '<div class="list-group-item text-muted small">' + escapeHtml(text) + '</div>';
+            results.style.display = '';
+        }
+
+        var search = debounce(function () {
+            var digits = input.value.replace(/\D+/g, '');
+            if (digits.length < 3) {
+                if (input.value.trim() === '') {
+                    results.style.display = 'none';
+                    results.innerHTML = '';
+                } else {
+                    showHint('Введите не меньше 3 цифр');
+                }
+                return;
+            }
+            fetch('/extensions/search-targets?mode=caller_id&q=' + encodeURIComponent(digits))
+                .then(function (r) { return r.json(); })
+                .then(function (items) {
+                    if (input.value.replace(/\D+/g, '') !== digits) {
+                        return; // пока шёл запрос, ввод изменился
+                    }
+                    results.innerHTML = '';
+                    if (!items.length) {
+                        showHint('Внешних номеров «Городской»/«Сотовый» с такими цифрами нет');
+                        return;
+                    }
+                    items.forEach(function (item) {
+                        var b = document.createElement('button');
+                        b.type = 'button';
+                        b.className = 'list-group-item list-group-item-action';
+                        b.textContent = item.label;
+                        b.addEventListener('click', function () {
+                            valueField.value = item.id;
+                            selectedBox.innerHTML = '<span class="badge text-bg-light text-dark border">' + escapeHtml(item.label) +
+                                ' <a href="#" id="caller-id-clear" class="text-danger text-decoration-none" title="Очистить">✕</a></span>';
+                            input.value = '';
+                            input.classList.remove('is-invalid');
+                            results.style.display = 'none';
+                            results.innerHTML = '';
+                        });
+                        results.appendChild(b);
+                    });
+                    results.style.display = '';
+                })
+                .catch(function () { results.style.display = 'none'; });
+        }, 250);
+
+        input.addEventListener('input', search);
+        input.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault(); // не отправлять форму из поля поиска
+            }
+        });
+        document.addEventListener('click', function (e) {
+            if (e.target !== input && !results.contains(e.target)) {
+                results.style.display = 'none';
+            }
+            if (e.target.id === 'caller-id-clear') {
+                e.preventDefault();
+                valueField.value = '';
+                selectedBox.innerHTML = notSet;
+            }
+        });
+    })();
 
     function escapeHtml(str) {
         var div = document.createElement('div');

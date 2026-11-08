@@ -38,6 +38,7 @@ if (!function_exists('extTabUrl')) {
     <?php endforeach; ?>
 </ul>
 
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
 <form method="get" class="mb-3" id="extensions-search-form" onsubmit="return false;">
     <input type="hidden" name="tab" id="extensions-search-tab" value="<?= View::e($tab) ?>">
     <div class="input-group" style="max-width: 400px">
@@ -47,6 +48,12 @@ if (!function_exists('extTabUrl')) {
         </span>
     </div>
 </form>
+<div class="btn-group btn-group-sm mb-3" title="Выгрузить список текущей вкладки (с учётом поиска)">
+    <?php $exportQs = 'tab=' . urlencode($tab) . ($search !== '' ? '&q=' . urlencode($search) : ''); ?>
+    <a href="/extensions/export?format=xlsx&<?= $exportQs ?>" class="btn btn-outline-success extensions-export" data-format="xlsx">Excel</a>
+    <a href="/extensions/export?format=pdf&<?= $exportQs ?>" class="btn btn-outline-danger extensions-export" data-format="pdf">PDF</a>
+</div>
+</div>
 
 <div class="card">
     <div class="table-responsive">

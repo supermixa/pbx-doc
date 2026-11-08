@@ -30,8 +30,12 @@ class ExtensionNumber
 
     private static array $fillable = [
         'number', 'category', 'type', 'owner', 'context', 'scenario_id', 'department_id',
-        'legal_entity_id', 'provider_id', 'trunk_id', 'calltracking_target_id', 'status', 'description',
+        'legal_entity_id', 'provider_id', 'trunk_id', 'calltracking_target_id', 'caller_id_extension_id',
+        'status', 'description',
     ];
+
+    /** Типы внешних номеров, которые можно выбрать АОН-ом внутреннего номера */
+    public const CALLER_ID_TYPES = ['did_city', 'did_mobile'];
 
     private const JOINS = '
                 FROM extensions e
@@ -42,12 +46,14 @@ class ExtensionNumber
                 LEFT JOIN trunks tr ON tr.id = e.trunk_id
                 LEFT JOIN calltracking_targets ct ON ct.id = e.calltracking_target_id
                 LEFT JOIN calltracking_goals ctg ON ctg.id = ct.goal_id
+                LEFT JOIN extensions cid ON cid.id = e.caller_id_extension_id
                 LEFT JOIN users cu ON cu.id = e.created_by
                 LEFT JOIN users uu ON uu.id = e.updated_by';
 
     private const SELECT_COLUMNS = 'e.*, s.name AS scenario_name, d.name AS department_name,
                        le.name AS legal_entity_name, pr.name AS provider_name, tr.name AS trunk_name,
                        ctg.name AS calltracking_target_name, ct.goal_id AS calltracking_goal_id,
+                       cid.number AS caller_id_number, cid.type AS caller_id_type,
                        cu.name AS created_by_name, uu.name AS updated_by_name';
 
     public static function all(string $search = '', string $category = '', string $type = ''): array
@@ -291,6 +297,45 @@ class ExtensionNumber
     }
 
     /** Внутренние номера (category=internal, type=internal) — единственно допустимые участники очереди/группы */
+    /**
+     * Кандидаты в АОН внутреннего номера: внешние номера с типом «Городской»
+     * или «Сотовый», в которых встречается введённая последовательность цифр
+     * (форматирование номера — пробелы, скобки, «+» — не мешает поиску).
+     */
+    public static function callerIdCandidates(string $digits, int $limit = 20): array
+    {
+        $digits = preg_replace('/\D+/', '', $digits);
+        if (strlen($digits) < 3) {
+            return [];
+        }
+        $sql = "SELECT id, number, type, owner FROM extensions
+                WHERE category = 'external' AND type IN ('did_city', 'did_mobile')
+                  AND REGEXP_REPLACE(number, '[^0-9]', '') LIKE :digits
+                ORDER BY number LIMIT " . max(1, min(50, $limit));
+        $stmt = Db::connection()->prepare($sql);
+        $stmt->execute(['digits' => '%' . $digits . '%']);
+        return $stmt->fetchAll();
+    }
+
+    /** Внутренние номера, у которых этот внешний номер выбран АОН-ом */
+    public static function callerIdUsers(int $externalId): array
+    {
+        $stmt = Db::connection()->prepare('SELECT id, number, owner FROM extensions WHERE caller_id_extension_id = :id ORDER BY number');
+        $stmt->execute(['id' => $externalId]);
+        return $stmt->fetchAll();
+    }
+
+    /** Все номера подразделения (для карточки подразделения), по категории/типу/номеру */
+    public static function forDepartment(int $departmentId): array
+    {
+        $sql = 'SELECT ' . self::SELECT_COLUMNS . self::JOINS . "
+                WHERE e.department_id = :department_id
+                ORDER BY e.category = 'external', FIELD(e.type, 'internal', 'queue', 'ivr', 'other', 'did_city', 'did_mobile', 'calltracking'), e.number";
+        $stmt = Db::connection()->prepare($sql);
+        $stmt->execute(['department_id' => $departmentId]);
+        return $stmt->fetchAll();
+    }
+
     public static function internalMemberCandidates(string $search = '', int $limit = 20): array
     {
         $sql = "SELECT id, number, owner FROM extensions WHERE category = 'internal' AND type = 'internal'";

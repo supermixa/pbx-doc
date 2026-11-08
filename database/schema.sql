@@ -133,6 +133,22 @@ CREATE TABLE IF NOT EXISTS departments (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------------------------------------------------------
+-- Отделы (справочник: наименование и описание, устроен как «Подразделения»)
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS divisions (
+    id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name            VARCHAR(150)        NOT NULL,
+    description     TEXT                NULL,
+    created_by      INT UNSIGNED        NULL,
+    updated_by      INT UNSIGNED        NULL,
+    created_at      DATETIME            NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      DATETIME            NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    KEY idx_divisions_name (name),
+    CONSTRAINT fk_divisions_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+    CONSTRAINT fk_divisions_updated_by FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ----------------------------------------------------------------------------
 -- Типы оборудования (вложенный справочник: каталог моделей/брендов)
 -- category: ip_phone | softphone | dect_base | gateway
 -- ----------------------------------------------------------------------------
@@ -320,6 +336,9 @@ CREATE TABLE IF NOT EXISTS extensions (
     provider_id             INT UNSIGNED        NULL,
     trunk_id                INT UNSIGNED        NULL,
     calltracking_target_id  INT UNSIGNED        NULL,
+    -- АОН внутреннего номера (только category=internal, type=internal):
+    -- внешний номер с типом «Городской» или «Сотовый»
+    caller_id_extension_id  INT UNSIGNED        NULL,
     status                  VARCHAR(20)         NOT NULL DEFAULT 'active',
     description             TEXT                NULL,
     created_by              INT UNSIGNED        NULL,
@@ -335,6 +354,7 @@ CREATE TABLE IF NOT EXISTS extensions (
     CONSTRAINT fk_extensions_provider FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE SET NULL,
     CONSTRAINT fk_extensions_trunk FOREIGN KEY (trunk_id) REFERENCES trunks(id) ON DELETE SET NULL,
     CONSTRAINT fk_extensions_calltracking_target FOREIGN KEY (calltracking_target_id) REFERENCES calltracking_targets(id) ON DELETE SET NULL,
+    CONSTRAINT fk_extensions_caller_id FOREIGN KEY (caller_id_extension_id) REFERENCES extensions(id) ON DELETE SET NULL,
     CONSTRAINT fk_extensions_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
     CONSTRAINT fk_extensions_updated_by FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -6,6 +6,8 @@ use App\Core\Auth;
 use App\Core\AuditLogger;
 use App\Core\Csrf;
 use App\Core\Db;
+use App\Core\Export\Exporter;
+use App\Core\ExtensionTable;
 use App\Core\Flash;
 use App\Core\Labels;
 use App\Core\Validator;
@@ -105,6 +107,7 @@ class ExtensionController
             'groupMembers' => ExtensionNumber::groupMembers((int)$extension['id']),
             'queueSettings' => ExtensionNumber::queueSettings((int)$extension['id']),
             'memberships' => ExtensionNumber::groupMembershipsFor((int)$extension['id']),
+            'callerIdUsers' => ExtensionNumber::callerIdUsers((int)$extension['id']),
             'history' => AuditLog::forEntity('extension', (int)$extension['id']),
         ]);
     }
@@ -157,7 +160,7 @@ class ExtensionController
             $auditData['members'] = ExtensionNumber::summarizeMembers(ExtensionNumber::groupMembers($id));
             $auditData['queue_settings'] = ExtensionNumber::summarizeQueueSettings(ExtensionNumber::queueSettings($id));
         }
-        AuditLogger::logCreate('extension', $id, $auditData);
+        AuditLogger::logCreate('extension', $id, self::forAudit($auditData));
 
         Flash::success('Номер создан');
         header('Location: /extensions/' . $id);
@@ -232,7 +235,7 @@ class ExtensionController
         $newForDiff['members'] = ExtensionNumber::summarizeMembers(ExtensionNumber::groupMembers($id));
         $newForDiff['queue_settings'] = ExtensionNumber::summarizeQueueSettings(ExtensionNumber::queueSettings($id));
 
-        AuditLogger::logUpdate('extension', $id, $oldForDiff, $newForDiff);
+        AuditLogger::logUpdate('extension', $id, self::forAudit($oldForDiff), self::forAudit($newForDiff));
 
         Flash::success('Изменения сохранены');
         header('Location: /extensions/' . $id);
@@ -257,7 +260,7 @@ class ExtensionController
             }
             $old['members'] = ExtensionNumber::summarizeMembers(ExtensionNumber::groupMembers($id));
             $old['queue_settings'] = ExtensionNumber::summarizeQueueSettings(ExtensionNumber::queueSettings($id));
-            AuditLogger::logDelete('extension', $id, $old);
+            AuditLogger::logDelete('extension', $id, self::forAudit($old));
             ExtensionNumber::delete($id);
             Flash::success('Номер удалён');
         }
@@ -317,7 +320,14 @@ class ExtensionController
         $q = trim($_GET['q'] ?? '');
         $excludeId = isset($_GET['exclude']) ? (int)$_GET['exclude'] : null;
 
-        if ($mode === 'failover') {
+        if ($mode === 'caller_id') {
+            // АОН внутреннего номера: внешние «Городской»/«Сотовый», поиск от 3 цифр
+            $results = array_map(fn($r) => [
+                'type' => 'extension',
+                'id' => (int)$r['id'],
+                'label' => $r['number'] . ' — ' . Labels::extensionTypeLabel($r['type'], 'external') . ($r['owner'] ? ' (' . $r['owner'] . ')' : ''),
+            ], ExtensionNumber::callerIdCandidates($q, 20));
+        } elseif ($mode === 'failover') {
             $results = ExtensionNumber::failoverTargetCandidates($q, $excludeId, 20);
         } else {
             $rows = ExtensionNumber::internalMemberCandidates($q, 20);
@@ -332,6 +342,48 @@ class ExtensionController
         }
 
         echo json_encode($results);
+    }
+
+    /**
+     * Выгрузка списка номеров текущей вкладки /extensions (с учётом поиска)
+     * в Excel (.xlsx) или PDF: /extensions/export?format=xlsx|pdf&tab=...&q=...
+     */
+    public function export(): void
+    {
+        if (!Auth::requireLogin()) {
+            return;
+        }
+        $format = ($_GET['format'] ?? 'xlsx') === 'pdf' ? 'pdf' : 'xlsx';
+        $search = trim($_GET['q'] ?? '');
+        $tab = $_GET['tab'] ?? 'external';
+        if (!array_key_exists($tab, self::INDEX_TABS)) {
+            $tab = 'external';
+        }
+        [$category, $type] = self::INDEX_TABS[$tab];
+        $effectiveSearch = mb_strlen($search) >= 2 ? $search : '';
+        $rows = ExtensionNumber::all($effectiveSearch, $category, $type ?? '');
+
+        $tabLabel = ExtensionTable::TAB_LABELS[$tab];
+        $columns = ExtensionTable::columnsForTab($tab);
+        $subtitle = 'Записей: ' . count($rows) . ($effectiveSearch !== '' ? ' · поиск: «' . $effectiveSearch . '»' : '');
+
+        Exporter::send($format, 'Номера — ' . $tabLabel, 'Номера — ' . $tabLabel, $subtitle, [
+            ExtensionTable::section(null, $columns, $rows),
+        ]);
+    }
+
+    /**
+     * Для журнала изменений АОН пишется номером, а не ID — история остаётся
+     * читаемой, даже если внешний номер потом удалят.
+     */
+    private static function forAudit(array $row): array
+    {
+        if (array_key_exists('caller_id_extension_id', $row)) {
+            $id = (int)($row['caller_id_extension_id'] ?? 0);
+            $cid = $id > 0 ? ExtensionNumber::findRaw($id) : null;
+            $row['caller_id_extension_id'] = $cid ? $cid['number'] : ($id > 0 ? "#{$id}" : null);
+        }
+        return $row;
     }
 
     /** Справочники, нужные форме создания/редактирования номера */
@@ -416,6 +468,20 @@ class ExtensionController
         if ($category !== 'external' || $type !== 'calltracking') {
             $calltrackingTargetId = null;
         }
+        // АОН — только у внутренних номеров с типом «Внутренний»: внешний номер
+        // с типом «Городской» или «Сотовый» (или пусто)
+        $callerIdExtensionId = null;
+        if ($category === 'internal' && $type === 'internal') {
+            $rawCallerId = trim((string)($input['caller_id_extension_id'] ?? ''));
+            if ($rawCallerId !== '') {
+                $callerId = ctype_digit($rawCallerId) ? ExtensionNumber::findRaw((int)$rawCallerId) : null;
+                if ($callerId && $callerId['category'] === 'external' && in_array($callerId['type'], ExtensionNumber::CALLER_ID_TYPES, true)) {
+                    $callerIdExtensionId = (int)$callerId['id'];
+                } else {
+                    $v->addError('caller_id_extension_id', 'АОН — выберите внешний номер с типом «Городской» или «Сотовый»');
+                }
+            }
+        }
         // Сценарий/Контекст скрыты в форме для типа "Очередь" — не сохраняем устаревшее значение
         if ($isQueue) {
             $scenarioId = null;
@@ -436,6 +502,7 @@ class ExtensionController
             'provider_id' => $providerId,
             'trunk_id' => $trunkId,
             'calltracking_target_id' => $calltrackingTargetId,
+            'caller_id_extension_id' => $callerIdExtensionId,
             'status' => $v->get('status', 'active') ?: 'active',
             'description' => $v->get('description'),
         ];

@@ -44,9 +44,10 @@ function nav_active(string $path): string
                 <li class="nav-item"><a class="nav-link<?= nav_active('/routes') ?>" href="/routes">Маршруты</a></li>
                 <li class="nav-item"><a class="nav-link<?= nav_active('/scenarios') ?>" href="/scenarios">Сценарии</a></li>
                 <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle<?= (nav_active('/departments') || nav_active('/equipment') || nav_active('/legal-entities') || nav_active('/providers') || nav_active('/calltracking') || nav_active('/music')) ? ' active' : '' ?>" href="#" role="button" data-bs-toggle="dropdown">Справочники</a>
+                    <a class="nav-link dropdown-toggle<?= (nav_active('/departments') || nav_active('/divisions') || nav_active('/equipment') || nav_active('/legal-entities') || nav_active('/providers') || nav_active('/calltracking') || nav_active('/music')) ? ' active' : '' ?>" href="#" role="button" data-bs-toggle="dropdown">Справочники</a>
                     <ul class="dropdown-menu">
                         <li><a class="dropdown-item" href="/departments">Подразделения</a></li>
+                        <li><a class="dropdown-item" href="/divisions">Отделы</a></li>
                         <li><a class="dropdown-item" href="/equipment">Оборудование</a></li>
                         <li><a class="dropdown-item" href="/equipment-types">Типы оборудования</a></li>
                         <li><hr class="dropdown-divider"></li>

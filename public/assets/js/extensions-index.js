@@ -58,4 +58,18 @@
     }
 
     input.addEventListener('input', debounce(runSearch, 250));
+
+    // Выгрузка в Excel/PDF — с тем поиском, который сейчас введён (живой
+    // поиск не перезагружает страницу, поэтому ссылку собираем при клике)
+    document.querySelectorAll('.extensions-export').forEach(function (link) {
+        link.addEventListener('click', function () {
+            var q = input.value.trim();
+            var url = '/extensions/export?format=' + encodeURIComponent(link.getAttribute('data-format')) +
+                '&tab=' + encodeURIComponent(tab);
+            if (q.length >= 2) {
+                url += '&q=' + encodeURIComponent(q);
+            }
+            link.href = url;
+        });
+    });
 })();

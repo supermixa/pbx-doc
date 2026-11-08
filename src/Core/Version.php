@@ -9,10 +9,10 @@ namespace App\Core;
  */
 final class Version
 {
-    public const NUMBER = '0.22';
-    public const RELEASE_DATE = '2026-10-23';
+    public const NUMBER = '0.23';
+    public const RELEASE_DATE = '2026-11-09';
 
-    /** «версия 0.22 от 23.10.2026» */
+    /** Например: «версия 0.23 от 09.11.2026» */
     public static function label(): string
     {
         return 'версия ' . self::NUMBER . ' от ' . date('d.m.Y', strtotime(self::RELEASE_DATE));

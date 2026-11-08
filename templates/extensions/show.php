@@ -37,6 +37,21 @@ use App\Core\View;
                             <a href="/departments/<?= (int)$extension['department_id'] ?>"><?= View::e($extension['department_name']) ?></a>
                         <?php else: ?>—<?php endif; ?>
                     </dd>
+                    <?php if ($extension['category'] === 'internal' && $extension['type'] === 'internal'): ?>
+                        <dt class="col-sm-4">АОН</dt>
+                        <dd class="col-sm-8">
+                            <?php if (!empty($extension['caller_id_extension_id']) && !empty($extension['caller_id_number'])): ?>
+                                <a href="/extensions/<?= (int)$extension['caller_id_extension_id'] ?>"><?= View::e($extension['caller_id_number']) ?></a>
+                                <span class="text-muted small"><?= View::e(Labels::extensionTypeLabel((string)$extension['caller_id_type'], 'external')) ?></span>
+                            <?php else: ?>—<?php endif; ?>
+                        </dd>
+                    <?php endif; ?>
+                    <?php if ($extension['category'] === 'external' && !empty($callerIdUsers)): ?>
+                        <dt class="col-sm-4">АОН у номеров</dt>
+                        <dd class="col-sm-8">
+                            <?php foreach ($callerIdUsers as $i => $u): ?><?= $i > 0 ? ', ' : '' ?><a href="/extensions/<?= (int)$u['id'] ?>"><?= View::e($u['number']) ?></a><?php endforeach; ?>
+                        </dd>
+                    <?php endif; ?>
                     <?php if ($extension['category'] === 'external'): ?>
                         <dt class="col-sm-4">Юрлицо</dt>
                         <dd class="col-sm-8">
