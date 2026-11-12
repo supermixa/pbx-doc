@@ -55,8 +55,18 @@ if (!function_exists('extTabUrl')) {
     <?php $exportQs = 'tab=' . urlencode($tab) . ($search !== '' ? '&q=' . urlencode($search) : ''); ?>
     <a href="/extensions/export?format=xlsx&<?= $exportQs ?>" class="btn btn-outline-success extensions-export" data-format="xlsx">Excel</a>
     <a href="/extensions/export?format=pdf&<?= $exportQs ?>" class="btn btn-outline-danger extensions-export" data-format="pdf">PDF</a>
+    <?php if ($tab === 'internal'): ?>
+        <a href="/extensions/export?format=mikopbx&<?= $exportQs ?>" class="btn btn-outline-primary extensions-export" data-format="mikopbx"
+           title="CSV для импорта сотрудников в MikoPBX (формат «стандартный»): номера с типом «Внутренний», с учётом поиска">CSV для MikoPBX</a>
+    <?php endif; ?>
 </div>
 </div>
+<?php if ($tab === 'internal' && ($withoutOwnerCount ?? 0) > 0): ?>
+    <div class="alert alert-warning py-2 small">
+        У <?= (int)$withoutOwnerCount ?> внутр. номеров не заполнен «Владелец». В CSV для MikoPBX он попадает в обязательное поле
+        <code>user_username</code> — такие строки MikoPBX не импортирует. Заполните владельца перед выгрузкой.
+    </div>
+<?php endif; ?>
 
 <div class="card">
     <div class="table-responsive">

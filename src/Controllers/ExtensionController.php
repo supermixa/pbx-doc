@@ -7,6 +7,7 @@ use App\Core\AuditLogger;
 use App\Core\Csrf;
 use App\Core\Db;
 use App\Core\Export\Exporter;
+use App\Core\Export\MikoPbxCsv;
 use App\Core\ExtensionTable;
 use App\Core\Flash;
 use App\Core\Labels;
@@ -63,6 +64,7 @@ class ExtensionController
             'tab' => $tab,
             'counts' => $counts,
             'isExternalTab' => $tab === 'external',
+            'withoutOwnerCount' => $tab === 'internal' ? ExtensionNumber::countInternalWithoutOwner() : 0,
         ]);
     }
 
@@ -354,9 +356,19 @@ class ExtensionController
         if (!Auth::requireLogin()) {
             return;
         }
-        $format = ($_GET['format'] ?? 'xlsx') === 'pdf' ? 'pdf' : 'xlsx';
+        $requested = (string)($_GET['format'] ?? 'xlsx');
         $search = trim($_GET['q'] ?? '');
         $tab = $_GET['tab'] ?? 'external';
+
+        // CSV для импорта сотрудников в MikoPBX — только внутренние номера
+        // с типом «Внутренний» (вкладка «Внутренние»), с учётом поиска
+        if ($requested === 'mikopbx') {
+            $effectiveSearch = mb_strlen($search) >= 2 ? $search : '';
+            MikoPbxCsv::send(ExtensionNumber::all($effectiveSearch, 'internal', 'internal'));
+            return;
+        }
+
+        $format = $requested === 'pdf' ? 'pdf' : 'xlsx';
         if (!array_key_exists($tab, self::INDEX_TABS)) {
             $tab = 'external';
         }

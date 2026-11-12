@@ -9,7 +9,7 @@ namespace App\Core;
  */
 final class Version
 {
-    public const NUMBER = '0.24';
+    public const NUMBER = '0.25';
     public const RELEASE_DATE = '2026-11-13';
 
     /** Например: «версия 0.23 от 09.11.2026» */

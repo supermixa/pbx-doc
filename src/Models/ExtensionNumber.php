@@ -319,6 +319,14 @@ class ExtensionNumber
         return $stmt->fetchAll();
     }
 
+    /** Сколько внутренних номеров с типом «Внутренний» без владельца (для экспорта в MikoPBX) */
+    public static function countInternalWithoutOwner(): int
+    {
+        return (int)Db::connection()->query(
+            "SELECT COUNT(*) FROM extensions WHERE category = 'internal' AND type = 'internal' AND (owner IS NULL OR TRIM(owner) = '')"
+        )->fetchColumn();
+    }
+
     /** Внутренние номера, у которых этот внешний номер выбран АОН-ом */
     public static function callerIdUsers(int $externalId): array
     {
