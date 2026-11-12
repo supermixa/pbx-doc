@@ -70,7 +70,7 @@ class DepartmentController
         foreach (ExtensionTable::groupByType($rows) as $g) {
             $sections[] = ExtensionTable::section(
                 $g['label'] . ' (' . count($g['rows']) . ')',
-                ExtensionTable::columnsForGroup($g['category'], $g['type']),
+                ExtensionTable::columnsForGroup($g['category'], $g['type'], ['department']),
                 $g['rows']
             );
         }

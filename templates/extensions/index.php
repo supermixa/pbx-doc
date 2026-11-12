@@ -26,7 +26,10 @@ if (!function_exists('extTabUrl')) {
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
     <h3 class="mb-0">Номера</h3>
     <?php if (Auth::canEdit()): ?>
-        <a href="/extensions/create" class="btn btn-primary">+ Добавить номер</a>
+        <div class="d-flex gap-2">
+            <a href="/extensions/import" class="btn btn-outline-secondary" title="Импорт внутренних номеров с типом «Внутренний» из CSV">Импорт CSV</a>
+            <a href="/extensions/create" class="btn btn-primary">+ Добавить номер</a>
+        </div>
     <?php endif; ?>
 </div>
 

@@ -339,6 +339,8 @@ CREATE TABLE IF NOT EXISTS extensions (
     -- АОН внутреннего номера (только category=internal, type=internal):
     -- внешний номер с типом «Городской» или «Сотовый»
     caller_id_extension_id  INT UNSIGNED        NULL,
+    -- Отдел (справочник «Отделы») — только category=internal, type=internal
+    division_id             INT UNSIGNED        NULL,
     status                  VARCHAR(20)         NOT NULL DEFAULT 'active',
     description             TEXT                NULL,
     created_by              INT UNSIGNED        NULL,
@@ -355,6 +357,7 @@ CREATE TABLE IF NOT EXISTS extensions (
     CONSTRAINT fk_extensions_trunk FOREIGN KEY (trunk_id) REFERENCES trunks(id) ON DELETE SET NULL,
     CONSTRAINT fk_extensions_calltracking_target FOREIGN KEY (calltracking_target_id) REFERENCES calltracking_targets(id) ON DELETE SET NULL,
     CONSTRAINT fk_extensions_caller_id FOREIGN KEY (caller_id_extension_id) REFERENCES extensions(id) ON DELETE SET NULL,
+    CONSTRAINT fk_extensions_division FOREIGN KEY (division_id) REFERENCES divisions(id) ON DELETE SET NULL,
     CONSTRAINT fk_extensions_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
     CONSTRAINT fk_extensions_updated_by FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

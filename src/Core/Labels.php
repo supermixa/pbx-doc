@@ -119,6 +119,7 @@ class Labels
         'legal_entities' => 'Обслуживаемые юрлица',
         'calltracking_target_id' => 'Цель Calltracking',
         'caller_id_extension_id' => 'АОН',
+        'division_id' => 'Отдел',
         'target' => 'Цель',
         'goals' => 'Цели',
         'title' => 'Название',

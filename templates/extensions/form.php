@@ -86,6 +86,16 @@ $qs = $queueSettings ?? null;
                 }
             }
             ?>
+            <div class="col-md-4" id="division-field">
+                <label class="form-label">Отдел</label>
+                <select name="division_id" id="division-select" class="form-select <?= isset($errors['division_id']) ? 'is-invalid' : '' ?>">
+                    <option value="">— не выбран —</option>
+                    <?php foreach ($divisions as $dv): ?>
+                        <option value="<?= (int)$dv['id'] ?>" <?= (int)($extension['division_id'] ?? 0) === (int)$dv['id'] ? 'selected' : '' ?>><?= View::e($dv['name']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+                <?php if (isset($errors['division_id'])): ?><div class="invalid-feedback"><?= View::e($errors['division_id']) ?></div><?php endif; ?>
+            </div>
             <div class="col-md-4" id="caller-id-field">
                 <label class="form-label">АОН</label>
                 <div class="position-relative">

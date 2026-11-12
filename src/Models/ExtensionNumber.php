@@ -30,7 +30,7 @@ class ExtensionNumber
 
     private static array $fillable = [
         'number', 'category', 'type', 'owner', 'context', 'scenario_id', 'department_id',
-        'legal_entity_id', 'provider_id', 'trunk_id', 'calltracking_target_id', 'caller_id_extension_id',
+        'legal_entity_id', 'provider_id', 'trunk_id', 'calltracking_target_id', 'caller_id_extension_id', 'division_id',
         'status', 'description',
     ];
 
@@ -47,6 +47,7 @@ class ExtensionNumber
                 LEFT JOIN calltracking_targets ct ON ct.id = e.calltracking_target_id
                 LEFT JOIN calltracking_goals ctg ON ctg.id = ct.goal_id
                 LEFT JOIN extensions cid ON cid.id = e.caller_id_extension_id
+                LEFT JOIN divisions dv ON dv.id = e.division_id
                 LEFT JOIN users cu ON cu.id = e.created_by
                 LEFT JOIN users uu ON uu.id = e.updated_by';
 
@@ -54,6 +55,7 @@ class ExtensionNumber
                        le.name AS legal_entity_name, pr.name AS provider_name, tr.name AS trunk_name,
                        ctg.name AS calltracking_target_name, ct.goal_id AS calltracking_goal_id,
                        cid.number AS caller_id_number, cid.type AS caller_id_type,
+                       dv.name AS division_name,
                        cu.name AS created_by_name, uu.name AS updated_by_name';
 
     public static function all(string $search = '', string $category = '', string $type = ''): array
@@ -322,6 +324,17 @@ class ExtensionNumber
     {
         $stmt = Db::connection()->prepare('SELECT id, number, owner FROM extensions WHERE caller_id_extension_id = :id ORDER BY number');
         $stmt->execute(['id' => $externalId]);
+        return $stmt->fetchAll();
+    }
+
+    /** Номера отдела (для карточки отдела) */
+    public static function forDivision(int $divisionId): array
+    {
+        $sql = 'SELECT ' . self::SELECT_COLUMNS . self::JOINS . "
+                WHERE e.division_id = :division_id
+                ORDER BY e.category = 'external', FIELD(e.type, 'internal', 'queue', 'ivr', 'other', 'did_city', 'did_mobile', 'calltracking'), e.number";
+        $stmt = Db::connection()->prepare($sql);
+        $stmt->execute(['division_id' => $divisionId]);
         return $stmt->fetchAll();
     }
 

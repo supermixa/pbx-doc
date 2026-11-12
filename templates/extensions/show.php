@@ -38,6 +38,12 @@ use App\Core\View;
                         <?php else: ?>—<?php endif; ?>
                     </dd>
                     <?php if ($extension['category'] === 'internal' && $extension['type'] === 'internal'): ?>
+                        <dt class="col-sm-4">Отдел</dt>
+                        <dd class="col-sm-8">
+                            <?php if (!empty($extension['division_id'])): ?>
+                                <a href="/divisions/<?= (int)$extension['division_id'] ?>"><?= View::e($extension['division_name']) ?></a>
+                            <?php else: ?>—<?php endif; ?>
+                        </dd>
                         <dt class="col-sm-4">АОН</dt>
                         <dd class="col-sm-8">
                             <?php if (!empty($extension['caller_id_extension_id']) && !empty($extension['caller_id_number'])): ?>

@@ -15,6 +15,7 @@ use App\Core\View;
 use App\Models\AuditLog;
 use App\Models\CalltrackingTarget;
 use App\Models\Department;
+use App\Models\Division;
 use App\Models\ExtensionNumber;
 use App\Models\LegalEntity;
 use App\Models\MusicFile;
@@ -376,12 +377,17 @@ class ExtensionController
      * Для журнала изменений АОН пишется номером, а не ID — история остаётся
      * читаемой, даже если внешний номер потом удалят.
      */
-    private static function forAudit(array $row): array
+    public static function forAudit(array $row): array
     {
         if (array_key_exists('caller_id_extension_id', $row)) {
             $id = (int)($row['caller_id_extension_id'] ?? 0);
             $cid = $id > 0 ? ExtensionNumber::findRaw($id) : null;
             $row['caller_id_extension_id'] = $cid ? $cid['number'] : ($id > 0 ? "#{$id}" : null);
+        }
+        if (array_key_exists('division_id', $row)) {
+            $id = (int)($row['division_id'] ?? 0);
+            $division = $id > 0 ? Division::findRaw($id) : null;
+            $row['division_id'] = $division ? $division['name'] : ($id > 0 ? "#{$id}" : null);
         }
         return $row;
     }
@@ -392,6 +398,7 @@ class ExtensionController
         return [
             'scenarios' => Scenario::options(),
             'departments' => Department::options(),
+            'divisions' => Division::options(),
             'legalEntities' => LegalEntity::options(),
             'providers' => Provider::optionsWithLegalEntities(),
             'trunks' => Trunk::options(),
@@ -482,6 +489,18 @@ class ExtensionController
                 }
             }
         }
+        // Отдел (справочник «Отделы») — тоже только у внутренних номеров с типом «Внутренний»
+        $divisionId = null;
+        if ($category === 'internal' && $type === 'internal') {
+            $rawDivision = trim((string)($input['division_id'] ?? ''));
+            if ($rawDivision !== '') {
+                if (ctype_digit($rawDivision) && Division::findRaw((int)$rawDivision)) {
+                    $divisionId = (int)$rawDivision;
+                } else {
+                    $v->addError('division_id', 'Выберите отдел из справочника «Отделы»');
+                }
+            }
+        }
         // Сценарий/Контекст скрыты в форме для типа "Очередь" — не сохраняем устаревшее значение
         if ($isQueue) {
             $scenarioId = null;
@@ -503,6 +522,7 @@ class ExtensionController
             'trunk_id' => $trunkId,
             'calltracking_target_id' => $calltrackingTargetId,
             'caller_id_extension_id' => $callerIdExtensionId,
+            'division_id' => $divisionId,
             'status' => $v->get('status', 'active') ?: 'active',
             'description' => $v->get('description'),
         ];

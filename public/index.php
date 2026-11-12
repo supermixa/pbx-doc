@@ -37,6 +37,7 @@ use App\Controllers\DivisionController;
 use App\Controllers\EquipmentController;
 use App\Controllers\EquipmentTypeController;
 use App\Controllers\ExtensionController;
+use App\Controllers\ExtensionImportController;
 use App\Controllers\LegalEntityController;
 use App\Controllers\MusicController;
 use App\Controllers\ProviderController;
@@ -124,6 +125,10 @@ $router->get('/extensions/search-targets', fn() => (new ExtensionController())->
 $router->get('/extensions/check-number', fn() => (new ExtensionController())->checkNumber());
 $router->get('/extensions/search-rows', fn() => (new ExtensionController())->searchRows());
 $router->get('/extensions/export', fn() => (new ExtensionController())->export());
+$router->get('/extensions/import', fn() => (new ExtensionImportController())->form());
+$router->get('/extensions/import/template', fn() => (new ExtensionImportController())->template());
+$router->post('/extensions/import', fn() => (new ExtensionImportController())->upload());
+$router->post('/extensions/import/confirm', fn() => (new ExtensionImportController())->confirm());
 $router->get('/extensions/create', fn() => (new ExtensionController())->create());
 $router->post('/extensions', fn() => (new ExtensionController())->store());
 $router->get('/extensions/{id}/edit', fn($p) => (new ExtensionController())->edit($p));
@@ -148,6 +153,7 @@ $router->post('/divisions', fn() => (new DivisionController())->store());
 $router->get('/divisions/{id}/edit', fn($p) => (new DivisionController())->edit($p));
 $router->post('/divisions/{id}/edit', fn($p) => (new DivisionController())->update($p));
 $router->post('/divisions/{id}/delete', fn($p) => (new DivisionController())->destroy($p));
+$router->get('/divisions/{id}/export', fn($p) => (new DivisionController())->export($p));
 $router->get('/divisions/{id}', fn($p) => (new DivisionController())->show($p));
 
 // ---- Типы оборудования ---------------------------------------------------

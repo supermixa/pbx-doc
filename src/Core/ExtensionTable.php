@@ -28,6 +28,7 @@ final class ExtensionTable
         'trunk' => 'Транк',
         'owner' => 'Владелец',
         'department' => 'Подразделение',
+        'division' => 'Отдел',
         'calltracking_goal' => 'Цель',
         'caller_id' => 'АОН',
         'status' => 'Статус',
@@ -39,22 +40,28 @@ final class ExtensionTable
     {
         return match ($tab) {
             'external' => ['number', 'type', 'provider', 'trunk', 'owner', 'department', 'calltracking_goal', 'status'],
-            'internal' => ['number', 'owner', 'department', 'caller_id', 'status'],
+            'internal' => ['number', 'owner', 'department', 'division', 'caller_id', 'status'],
             default => ['number', 'owner', 'department', 'status'],
         };
     }
 
-    /** Колонки группы номеров одного типа на карточке подразделения */
-    public static function columnsForGroup(string $category, string $type): array
+    /**
+     * Колонки группы номеров одного типа на карточке подразделения/отдела.
+     * $omit — колонки, которые на этой карточке не нужны (например,
+     * «Подразделение» на карточке самого подразделения).
+     */
+    public static function columnsForGroup(string $category, string $type, array $omit = []): array
     {
         if ($category === 'internal') {
-            return $type === 'internal'
-                ? ['number', 'owner', 'caller_id', 'status', 'description']
-                : ['number', 'owner', 'status', 'description'];
+            $columns = $type === 'internal'
+                ? ['number', 'owner', 'department', 'division', 'caller_id', 'status', 'description']
+                : ['number', 'owner', 'department', 'status', 'description'];
+        } else {
+            $columns = $type === 'calltracking'
+                ? ['number', 'provider', 'trunk', 'calltracking_goal', 'owner', 'department', 'status', 'description']
+                : ['number', 'provider', 'trunk', 'owner', 'department', 'status', 'description'];
         }
-        return $type === 'calltracking'
-            ? ['number', 'provider', 'trunk', 'calltracking_goal', 'owner', 'status', 'description']
-            : ['number', 'provider', 'trunk', 'owner', 'status', 'description'];
+        return array_values(array_diff($columns, $omit));
     }
 
     public static function label(string $column): string
@@ -72,6 +79,7 @@ final class ExtensionTable
             'trunk' => $row['trunk_name'] ?? '',
             'owner' => $row['owner'] ?? '',
             'department' => $row['department_name'] ?? '',
+            'division' => $row['division_name'] ?? '',
             'calltracking_goal' => $row['calltracking_target_name'] ?? '',
             'caller_id' => $row['caller_id_number'] ?? '',
             'status' => Labels::statusLabel((string)($row['status'] ?? '')),

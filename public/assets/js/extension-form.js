@@ -79,7 +79,7 @@
         toggleCallerIdField();
     }
 
-    // АОН — только у внутреннего номера с типом «Внутренний»
+    // АОН и Отдел — только у внутреннего номера с типом «Внутренний»
     function toggleCallerIdField() {
         var field = document.getElementById('caller-id-field');
         var value = document.getElementById('caller-id-value');
@@ -89,6 +89,14 @@
         var show = categorySelect.value === 'internal' && typeInternalSelect.value === 'internal';
         field.style.display = show ? '' : 'none';
         value.disabled = !show;
+
+        // Отдел — тоже только у типа «Внутренний»
+        var divisionField = document.getElementById('division-field');
+        var divisionSelect = document.getElementById('division-select');
+        if (divisionField && divisionSelect) {
+            divisionField.style.display = show ? '' : 'none';
+            divisionSelect.disabled = !show;
+        }
     }
 
     function toggleByCategory() {

@@ -30,6 +30,14 @@ use App\Core\View;
                 </dl>
             </div>
         </div>
+
+        <?php
+        $numbersTitle = 'Номера отдела';
+        $exportUrl = '/divisions/' . (int)$division['id'] . '/export';
+        $emptyText = 'К отделу не привязан ни один номер. Отдел выбирается в карточке внутреннего номера с типом «Внутренний».';
+        $omitColumns = ['division'];
+        require __DIR__ . '/../partials/numbers_by_type.php';
+        ?>
         <p class="text-muted small">
             Создан: <?= View::e($division['created_by_name'] ?? '—') ?>, <?= View::e(date('d.m.Y H:i', strtotime($division['created_at']))) ?><br>
             Изменён: <?= View::e($division['updated_by_name'] ?? '—') ?>, <?= View::e(date('d.m.Y H:i', strtotime($division['updated_at']))) ?>
