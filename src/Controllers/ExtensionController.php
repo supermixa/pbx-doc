@@ -21,6 +21,7 @@ use App\Models\ExtensionNumber;
 use App\Models\LegalEntity;
 use App\Models\MusicFile;
 use App\Models\Provider;
+use App\Models\RouteEntity;
 use App\Models\Scenario;
 use App\Models\Trunk;
 use Throwable;
@@ -35,6 +36,72 @@ class ExtensionController
         'ivr'      => ['internal', 'ivr'],
         'other'    => ['internal', 'other'],
     ];
+
+    /** Отборы списка по вкладкам (GET-параметры f_<ключ>) */
+    private const TAB_FILTERS = [
+        'external' => ['type', 'provider', 'trunk', 'department'],
+        'internal' => ['department', 'division'],
+    ];
+
+    /**
+     * Читает отборы вкладки из GET (f_type, f_provider, f_trunk,
+     * f_department, f_division). Пусто — без отбора, 'none' — «не указано»,
+     * иначе ID справочника (для «Тип» — код типа внешнего номера).
+     */
+    private static function listFilters(string $tab, array $query): array
+    {
+        $filters = [];
+        foreach (self::TAB_FILTERS[$tab] ?? [] as $key) {
+            $value = trim((string)($query['f_' . $key] ?? ''));
+            if ($value === '') {
+                continue;
+            }
+            if ($key === 'type') {
+                if (in_array($value, ExtensionNumber::EXTERNAL_TYPES, true)) {
+                    $filters[$key] = $value;
+                }
+            } elseif ($value === 'none' || ctype_digit($value)) {
+                $filters[$key] = $value === 'none' ? 'none' : (int)$value;
+            }
+        }
+        return $filters;
+    }
+
+    /** Варианты для выпадающих списков отборов вкладки */
+    private static function filterOptions(string $tab): array
+    {
+        $options = [];
+        foreach (self::TAB_FILTERS[$tab] ?? [] as $key) {
+            $options[$key] = match ($key) {
+                'type' => array_map(fn($t) => ['id' => $t, 'name' => Labels::extensionTypeLabel($t, 'external')], ExtensionNumber::EXTERNAL_TYPES),
+                'provider' => Provider::options(),
+                'trunk' => Trunk::options(),
+                'department' => Department::options(),
+                'division' => Division::options(),
+            };
+        }
+        return $options;
+    }
+
+    /** «Тип: Городской (DID) · Провайдер: …» — для подзаголовка выгрузки */
+    private static function describeFilters(string $tab, array $filters): string
+    {
+        $labels = ['type' => 'Тип', 'provider' => 'Провайдер', 'trunk' => 'Транк', 'department' => 'Подразделение', 'division' => 'Отдел'];
+        $options = self::filterOptions($tab);
+        $parts = [];
+        foreach ($filters as $key => $value) {
+            $name = 'не указан';
+            if ($value !== 'none') {
+                foreach ($options[$key] as $o) {
+                    if ((string)$o['id'] === (string)$value) {
+                        $name = $o['name'];
+                    }
+                }
+            }
+            $parts[] = $labels[$key] . ': ' . $name;
+        }
+        return implode(' · ', $parts);
+    }
 
     public function index(): void
     {
@@ -57,9 +124,13 @@ class ExtensionController
         // что и в живом поиске search-rows) — короче просто показываем весь список.
         $effectiveSearch = mb_strlen($search) >= 2 ? $search : '';
 
+        $filters = self::listFilters($tab, $_GET);
+
         View::render('extensions/index', [
             'title' => 'Номера',
-            'extensions' => ExtensionNumber::all($effectiveSearch, $category, $type ?? ''),
+            'extensions' => ExtensionNumber::all($effectiveSearch, $category, $type ?? '', $filters),
+            'filters' => $filters,
+            'filterOptions' => self::filterOptions($tab),
             'search' => $search,
             'tab' => $tab,
             'counts' => $counts,
@@ -88,7 +159,7 @@ class ExtensionController
         $effectiveSearch = mb_strlen($search) >= 2 ? $search : '';
 
         View::render('extensions/_rows', [
-            'extensions' => ExtensionNumber::all($effectiveSearch, $category, $type ?? ''),
+            'extensions' => ExtensionNumber::all($effectiveSearch, $category, $type ?? '', self::listFilters($tab, $_GET)),
             'isExternalTab' => $tab === 'external',
             'isInternalTab' => $tab === 'internal',
         ], null);
@@ -365,7 +436,7 @@ class ExtensionController
         // с типом «Внутренний» (вкладка «Внутренние»), с учётом поиска
         if ($requested === 'mikopbx') {
             $effectiveSearch = mb_strlen($search) >= 2 ? $search : '';
-            MikoPbxCsv::send(ExtensionNumber::all($effectiveSearch, 'internal', 'internal'));
+            MikoPbxCsv::send(ExtensionNumber::all($effectiveSearch, 'internal', 'internal', self::listFilters('internal', $_GET)));
             return;
         }
 
@@ -375,11 +446,15 @@ class ExtensionController
         }
         [$category, $type] = self::INDEX_TABS[$tab];
         $effectiveSearch = mb_strlen($search) >= 2 ? $search : '';
-        $rows = ExtensionNumber::all($effectiveSearch, $category, $type ?? '');
+        $filters = self::listFilters($tab, $_GET);
+        $rows = ExtensionNumber::all($effectiveSearch, $category, $type ?? '', $filters);
 
         $tabLabel = ExtensionTable::TAB_LABELS[$tab];
         $columns = ExtensionTable::columnsForTab($tab);
         $subtitle = 'Записей: ' . count($rows) . ($effectiveSearch !== '' ? ' · поиск: «' . $effectiveSearch . '»' : '');
+        if ($filters) {
+            $subtitle .= ' · ' . self::describeFilters($tab, $filters);
+        }
 
         Exporter::send($format, 'Номера — ' . $tabLabel, 'Номера — ' . $tabLabel, $subtitle, [
             ExtensionTable::section(null, $columns, $rows),
@@ -502,6 +577,26 @@ class ExtensionController
                 }
             }
         }
+        // АОН задаётся исходящим маршрутом (номер в его составе или в его
+        // подразделении)? Тогда смена АОН вручную требует подтверждения —
+        // иначе номер разойдётся с маршрутом.
+        if ($category === 'internal' && $type === 'internal' && !isset($v->errors()['caller_id_extension_id'])) {
+            $oldCallerId = $currentId ? (ExtensionNumber::findRaw($currentId)['caller_id_extension_id'] ?? null) : null;
+            $changed = (int)($oldCallerId ?? 0) !== (int)($callerIdExtensionId ?? 0);
+            if ($changed && empty($input['confirm_caller_id_override'])) {
+                $conflicts = array_filter(
+                    RouteEntity::callerIdRoutesFor($currentId, $departmentId),
+                    fn($r) => (int)$r['outbound_caller_id_id'] !== (int)($callerIdExtensionId ?? 0)
+                );
+                if ($conflicts) {
+                    $names = array_map(fn($r) => '«' . $r['name'] . '» (АОН ' . $r['aon_number'] . ')', $conflicts);
+                    $v->addError('caller_id_route_conflict', 'АОН этого номера задаётся исходящим маршрутом: '
+                        . implode(', ', $names) . '. Если сохранить другой АОН, номер будет отличаться от маршрута, '
+                        . 'а при следующем сохранении маршрута АОН снова заменится на АОН маршрута.');
+                }
+            }
+        }
+
         // Отдел (справочник «Отделы») — тоже только у внутренних номеров с типом «Внутренний»
         $divisionId = null;
         if ($category === 'internal' && $type === 'internal') {

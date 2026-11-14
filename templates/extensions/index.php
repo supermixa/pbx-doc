@@ -51,16 +51,46 @@ if (!function_exists('extTabUrl')) {
         </span>
     </div>
 </form>
-<div class="btn-group btn-group-sm mb-3" title="Выгрузить список текущей вкладки (с учётом поиска)">
-    <?php $exportQs = 'tab=' . urlencode($tab) . ($search !== '' ? '&q=' . urlencode($search) : ''); ?>
+<div class="btn-group btn-group-sm mb-3" title="Выгрузить список текущей вкладки (с учётом поиска и отборов)">
+    <?php
+    $exportQs = 'tab=' . urlencode($tab) . ($search !== '' ? '&q=' . urlencode($search) : '');
+    foreach ($filters as $fKey => $fValue) {
+        $exportQs .= '&f_' . $fKey . '=' . urlencode((string)$fValue);
+    }
+    ?>
     <a href="/extensions/export?format=xlsx&<?= $exportQs ?>" class="btn btn-outline-success extensions-export" data-format="xlsx">Excel</a>
     <a href="/extensions/export?format=pdf&<?= $exportQs ?>" class="btn btn-outline-danger extensions-export" data-format="pdf">PDF</a>
     <?php if ($tab === 'internal'): ?>
         <a href="/extensions/export?format=mikopbx&<?= $exportQs ?>" class="btn btn-outline-primary extensions-export" data-format="mikopbx"
-           title="CSV для импорта сотрудников в MikoPBX (формат «стандартный»): номера с типом «Внутренний», с учётом поиска">CSV для MikoPBX</a>
+           title="CSV для импорта сотрудников в MikoPBX (формат «стандартный»): номера с типом «Внутренний», с учётом поиска и отборов">CSV для MikoPBX</a>
     <?php endif; ?>
 </div>
 </div>
+<?php if (!empty($filterOptions)): ?>
+    <?php
+    $filterLabels = ['type' => 'Тип', 'provider' => 'Провайдер', 'trunk' => 'Транк', 'department' => 'Подразделение', 'division' => 'Отдел'];
+    $noneLabels = ['type' => '', 'provider' => '— не указан —', 'trunk' => '— не указан —', 'department' => '— не указано —', 'division' => '— не указан —'];
+    ?>
+    <div class="row g-2 align-items-end mb-3" id="extensions-filters">
+        <?php foreach ($filterOptions as $fKey => $options): ?>
+            <div class="col-sm-6 col-md-3 col-lg-2">
+                <label class="form-label small text-muted mb-1" for="filter-<?= $fKey ?>"><?= View::e($filterLabels[$fKey]) ?></label>
+                <select class="form-select form-select-sm extensions-filter" id="filter-<?= $fKey ?>" data-key="<?= $fKey ?>">
+                    <option value="">Все</option>
+                    <?php if ($noneLabels[$fKey] !== ''): ?>
+                        <option value="none" <?= ($filters[$fKey] ?? null) === 'none' ? 'selected' : '' ?>><?= View::e($noneLabels[$fKey]) ?></option>
+                    <?php endif; ?>
+                    <?php foreach ($options as $o): ?>
+                        <option value="<?= View::e((string)$o['id']) ?>" <?= isset($filters[$fKey]) && (string)$filters[$fKey] === (string)$o['id'] ? 'selected' : '' ?>><?= View::e($o['name']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+        <?php endforeach; ?>
+        <div class="col-auto">
+            <a href="<?= extTabUrl($tab, $search) ?>" class="btn btn-sm btn-outline-secondary" id="extensions-filters-reset" <?= $filters ? '' : 'style="display:none"' ?>>Сбросить отборы</a>
+        </div>
+    </div>
+<?php endif; ?>
 <?php if ($tab === 'internal' && ($withoutOwnerCount ?? 0) > 0): ?>
     <div class="alert alert-warning py-2 small">
         У <?= (int)$withoutOwnerCount ?> внутр. номеров не заполнен «Владелец». В CSV для MikoPBX он попадает в обязательное поле

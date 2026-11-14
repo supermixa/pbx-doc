@@ -88,6 +88,12 @@ function nav_active(string $path): string
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     <?php endforeach; ?>
+    <?php foreach (($flash['warning'] ?? []) as $msg): ?>
+        <div class="alert alert-warning alert-dismissible fade show" role="alert">
+            <?= View::e($msg) ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    <?php endforeach; ?>
     <?php foreach (($flash['error'] ?? []) as $msg): ?>
         <div class="alert alert-danger alert-dismissible fade show" role="alert">
             <?= View::e($msg) ?>

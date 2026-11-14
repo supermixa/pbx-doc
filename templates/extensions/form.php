@@ -3,6 +3,7 @@ use App\Core\Csrf;
 use App\Core\Labels;
 use App\Core\View;
 use App\Models\ExtensionNumber;
+use App\Models\RouteEntity;
 
 require __DIR__ . '/_form_helpers.php';
 
@@ -112,6 +113,27 @@ $qs = $queueSettings ?? null;
                 </div>
                 <input type="hidden" name="caller_id_extension_id" id="caller-id-value" value="<?= $callerIdLabel ? $callerIdId : '' ?>">
                 <div class="form-text">Внешний номер «Городской» или «Сотовый»; можно оставить пустым.</div>
+                <?php
+                $callerIdRoutes = RouteEntity::callerIdRoutesFor(
+                    $isEdit ? (int)$extension['id'] : null,
+                    !empty($extension['department_id']) ? (int)$extension['department_id'] : null
+                );
+                ?>
+                <?php if ($callerIdRoutes && !isset($errors['caller_id_route_conflict'])): ?>
+                    <div class="form-text text-primary">
+                        АОН задаётся исходящим маршрутом:
+                        <?php foreach ($callerIdRoutes as $i => $r): ?><?= $i > 0 ? ', ' : '' ?><a href="/routes/<?= (int)$r['id'] ?>" target="_blank">«<?= View::e($r['name']) ?>»</a> (<?= View::e($r['aon_number']) ?>)<?php endforeach; ?>.
+                    </div>
+                <?php endif; ?>
+                <?php if (isset($errors['caller_id_route_conflict'])): ?>
+                    <div class="alert alert-warning py-2 px-3 mt-2 mb-0 small">
+                        <?= View::e($errors['caller_id_route_conflict']) ?>
+                        <div class="form-check mt-1">
+                            <input class="form-check-input" type="checkbox" name="confirm_caller_id_override" value="1" id="confirm-caller-id-override">
+                            <label class="form-check-label" for="confirm-caller-id-override">Всё равно сохранить выбранный АОН</label>
+                        </div>
+                    </div>
+                <?php endif; ?>
             </div>
 
             <div class="col-md-4 external-field" id="legal-entity-field">

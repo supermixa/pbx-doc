@@ -130,6 +130,7 @@ $currentSelectionType = $route['selection_type'] ?? '';
                     <?php endforeach; ?>
                 </select>
                 <?php if (isset($errors['outbound_caller_id_id'])): ?><div class="invalid-feedback d-block"><?= View::e($errors['outbound_caller_id_id']) ?></div><?php endif; ?>
+                <div class="form-text">Для отбора «Внутренние номера» и «Подразделения» этот АОН при сохранении присваивается полю «АОН» внутренних номеров маршрута.</div>
             </div>
             <div class="col-md-4 direction-field outbound-field selection-field sel-aon-trunk" id="trunk-field">
                 <label class="form-label">Исходящий транк</label>

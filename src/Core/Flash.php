@@ -22,6 +22,11 @@ class Flash
         self::set('error', $message);
     }
 
+    public static function warning(string $message): void
+    {
+        self::set('warning', $message);
+    }
+
     public static function all(): array
     {
         $flash = $_SESSION['_flash'] ?? [];

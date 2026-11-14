@@ -58,7 +58,20 @@ class ExtensionNumber
                        dv.name AS division_name,
                        cu.name AS created_by_name, uu.name AS updated_by_name';
 
-    public static function all(string $search = '', string $category = '', string $type = ''): array
+    /**
+     * Колонки, по которым работают отборы списка номеров:
+     * ключ отбора => колонка. Значение отбора 'none' — «не указано» (IS NULL).
+     */
+    public const LIST_FILTER_COLUMNS = [
+        'type' => 'e.type',
+        'provider' => 'e.provider_id',
+        'trunk' => 'e.trunk_id',
+        'department' => 'e.department_id',
+        'division' => 'e.division_id',
+    ];
+
+    /** @param array $filters уже проверенные отборы: ключ LIST_FILTER_COLUMNS => значение/'none' */
+    public static function all(string $search = '', string $category = '', string $type = '', array $filters = []): array
     {
         $sql = 'SELECT ' . self::SELECT_COLUMNS . self::JOINS;
         $where = [];
@@ -75,6 +88,18 @@ class ExtensionNumber
         if ($type !== '') {
             $where[] = 'e.type = :type';
             $params['type'] = $type;
+        }
+        foreach ($filters as $key => $value) {
+            $column = self::LIST_FILTER_COLUMNS[$key] ?? null;
+            if ($column === null) {
+                continue;
+            }
+            if ($value === 'none') {
+                $where[] = "{$column} IS NULL";
+            } else {
+                $where[] = "{$column} = :f_{$key}";
+                $params['f_' . $key] = $value;
+            }
         }
         if (!empty($where)) {
             $sql .= ' WHERE ' . implode(' AND ', $where);

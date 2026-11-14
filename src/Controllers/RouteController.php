@@ -91,6 +91,7 @@ class RouteController
         try {
             $id = RouteEntity::create($data);
             RouteEntity::replaceRouteMembers($id, $memberIds);
+            $callerIdResult = $this->applyCallerIdToInternalNumbers($id, $data);
             $conn->commit();
         } catch (Throwable $e) {
             $conn->rollBack();
@@ -104,6 +105,7 @@ class RouteController
         AuditLogger::logCreate('route', $id, $auditData);
 
         Flash::success('Маршрут создан');
+        $this->reportCallerIdResult($callerIdResult);
         header('Location: /routes/' . $id);
     }
 
@@ -159,6 +161,7 @@ class RouteController
         try {
             RouteEntity::update($id, $data);
             RouteEntity::replaceRouteMembers($id, $memberIds);
+            $callerIdResult = $this->applyCallerIdToInternalNumbers($id, $data);
             $conn->commit();
         } catch (Throwable $e) {
             $conn->rollBack();
@@ -174,6 +177,7 @@ class RouteController
         AuditLogger::logUpdate('route', $id, $oldForDiff, $newForDiff);
 
         Flash::success('Изменения сохранены');
+        $this->reportCallerIdResult($callerIdResult);
         header('Location: /routes/' . $id);
     }
 
@@ -229,6 +233,71 @@ class RouteController
      * (departmentMembers()), чтобы корректно отражать текущий выбор в select'е
      * подразделения даже после неудачной валидации.
      */
+    /**
+     * АОН исходящего маршрута присваивается полю «АОН» внутренних номеров
+     * маршрута (состав для «Внутренние номера», номера подразделения для
+     * «Подразделения»). Вызывается внутри транзакции сохранения маршрута;
+     * журнал изменений номеров пишется в reportCallerIdResult() после commit.
+     *
+     * @return array{aon: ?array, changed: array, unchanged: int, skippedReason: ?string}
+     */
+    private function applyCallerIdToInternalNumbers(int $routeId, array $data): array
+    {
+        $result = ['aon' => null, 'changed' => [], 'unchanged' => 0, 'skippedReason' => null];
+        $aonId = (int)($data['outbound_caller_id_id'] ?? 0);
+        if ($data['direction'] !== 'outbound' || $aonId <= 0
+            || !in_array($data['selection_type'], ['internal_numbers', 'departments'], true)) {
+            return $result;
+        }
+        $aon = ExtensionNumber::findRaw($aonId);
+        $result['aon'] = $aon;
+        $covered = RouteEntity::coveredInternalNumbers($routeId);
+        if (!$covered) {
+            return $result;
+        }
+        if (!$aon || !in_array($aon['type'], ExtensionNumber::CALLER_ID_TYPES, true)) {
+            // Поле «АОН» внутреннего номера допускает только «Городской»/«Сотовый»
+            $result['skippedReason'] = 'АОН маршрута не присвоен внутренним номерам: у внутреннего номера АОН может быть только внешним номером с типом «Городской» или «Сотовый».';
+            return $result;
+        }
+        $stmt = Db::connection()->prepare(
+            'UPDATE extensions SET caller_id_extension_id = :aon, updated_by = :user WHERE id = :id'
+        );
+        foreach ($covered as $ext) {
+            if ((int)($ext['caller_id_extension_id'] ?? 0) === $aonId) {
+                $result['unchanged']++;
+                continue;
+            }
+            $stmt->execute(['aon' => $aonId, 'user' => Auth::id(), 'id' => (int)$ext['id']]);
+            $result['changed'][] = [
+                'id' => (int)$ext['id'],
+                'number' => $ext['number'],
+                'old' => $ext['caller_id_extension_id'] !== null ? (int)$ext['caller_id_extension_id'] : null,
+            ];
+        }
+        return $result;
+    }
+
+    private function reportCallerIdResult(array $result): void
+    {
+        foreach ($result['changed'] as $c) {
+            AuditLogger::logUpdate('extension', $c['id'],
+                ExtensionController::forAudit(['caller_id_extension_id' => $c['old']]),
+                ExtensionController::forAudit(['caller_id_extension_id' => $result['aon']['id']]));
+        }
+        if ($result['skippedReason']) {
+            Flash::warning($result['skippedReason']);
+            return;
+        }
+        if ($result['changed']) {
+            $numbers = array_column($result['changed'], 'number');
+            $list = implode(', ', array_slice($numbers, 0, 20)) . (count($numbers) > 20 ? ' и ещё ' . (count($numbers) - 20) : '');
+            Flash::success('АОН ' . $result['aon']['number'] . ' присвоен внутренним номерам маршрута (' . count($numbers) . '): ' . $list . '.');
+        } elseif ($result['unchanged'] > 0) {
+            Flash::success('У всех внутренних номеров маршрута уже стоит АОН ' . $result['aon']['number'] . '.');
+        }
+    }
+
     private function formOptions(?int $routeId = null): array
     {
         return [

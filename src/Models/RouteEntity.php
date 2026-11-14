@@ -120,6 +120,68 @@ class RouteEntity
     }
 
     // ------------------------------------------------------------------
+    // АОН маршрута ↔ АОН внутренних номеров
+    // ------------------------------------------------------------------
+
+    /**
+     * Внутренние номера (тип «Внутренний»), к которым относится исходящий
+     * маршрут: состав маршрута (selection_type = internal_numbers) или все
+     * внутренние номера подразделения (selection_type = departments).
+     * Для остальных типов отбора — пусто.
+     *
+     * @return array<int, array{id: int, number: string, caller_id_extension_id: ?int}>
+     */
+    public static function coveredInternalNumbers(int $routeId): array
+    {
+        $route = self::findRaw($routeId);
+        if (!$route || $route['direction'] !== 'outbound') {
+            return [];
+        }
+        if ($route['selection_type'] === 'internal_numbers') {
+            $sql = "SELECT e.id, e.number, e.caller_id_extension_id
+                    FROM route_members rm JOIN extensions e ON e.id = rm.member_extension_id
+                    WHERE rm.route_id = :id AND e.category = 'internal' AND e.type = 'internal'
+                    ORDER BY e.number";
+            $params = ['id' => $routeId];
+        } elseif ($route['selection_type'] === 'departments' && $route['department_id']) {
+            $sql = "SELECT id, number, caller_id_extension_id FROM extensions
+                    WHERE department_id = :dep AND category = 'internal' AND type = 'internal'
+                    ORDER BY number";
+            $params = ['dep' => (int)$route['department_id']];
+        } else {
+            return [];
+        }
+        $stmt = Db::connection()->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll();
+    }
+
+    /**
+     * Исходящие маршруты с заполненным АОН, которые задают АОН этому
+     * внутреннему номеру: номер в составе маршрута или в подразделении
+     * маршрута ($departmentId — подразделение номера, в т.ч. только что
+     * выбранное в форме). $extensionId = null — номер ещё не создан.
+     *
+     * @return array<int, array{id: int, name: string, outbound_caller_id_id: int, aon_number: string, via: string}>
+     */
+    public static function callerIdRoutesFor(?int $extensionId, ?int $departmentId): array
+    {
+        $sql = "SELECT r.id, r.name, r.outbound_caller_id_id, aon.number AS aon_number,
+                       CASE WHEN r.selection_type = 'internal_numbers' THEN 'members' ELSE 'department' END AS via
+                FROM routes r
+                JOIN extensions aon ON aon.id = r.outbound_caller_id_id
+                WHERE r.direction = 'outbound' AND (
+                    (r.selection_type = 'internal_numbers' AND r.id IN (
+                        SELECT route_id FROM route_members WHERE member_extension_id = :ext))
+                    OR (r.selection_type = 'departments' AND r.department_id = :dep)
+                )
+                ORDER BY r.name";
+        $stmt = Db::connection()->prepare($sql);
+        $stmt->execute(['ext' => $extensionId ?? 0, 'dep' => $departmentId ?? 0]);
+        return $stmt->fetchAll();
+    }
+
+    // ------------------------------------------------------------------
     // Состав внутренних номеров (selection_type = internal_numbers)
     // ------------------------------------------------------------------
 
