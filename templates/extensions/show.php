@@ -94,7 +94,21 @@ use App\Core\View;
                     </dd>
                     <dt class="col-sm-4">Контекст</dt><dd class="col-sm-8"><?= View::e($extension['context'] ?: '—') ?></dd>
                     <dt class="col-sm-4">Статус</dt>
-                    <dd class="col-sm-8"><span class="badge <?= $extension['status'] === 'active' ? 'text-bg-success' : 'text-bg-secondary' ?>"><?= View::e(Labels::statusLabel($extension['status'])) ?></span></dd>
+                    <dd class="col-sm-8"><span class="badge <?= Labels::statusBadgeClass($extension['status']) ?>"><?= View::e(Labels::statusLabel($extension['status'])) ?></span></dd>
+                    <?php if ($extension['status'] === 'forwarded'): ?>
+                        <dt class="col-sm-4">Переадресован на</dt>
+                        <dd class="col-sm-8">
+                            <?php if (!empty($extension['forward_to_extension_id']) && !empty($extension['forward_to_number'])): ?>
+                                <a href="/extensions/<?= (int)$extension['forward_to_extension_id'] ?>" class="fw-semibold"><?= View::e($extension['forward_to_number']) ?></a>
+                            <?php else: ?><span class="text-danger">не указан</span><?php endif; ?>
+                        </dd>
+                    <?php endif; ?>
+                    <?php if (!empty($forwardedFrom)): ?>
+                        <dt class="col-sm-4">Переадресация с номеров</dt>
+                        <dd class="col-sm-8">
+                            <?php foreach ($forwardedFrom as $i => $ff): ?><?= $i > 0 ? ', ' : '' ?><a href="/extensions/<?= (int)$ff['id'] ?>"><?= View::e($ff['number']) ?></a><?php endforeach; ?>
+                        </dd>
+                    <?php endif; ?>
                     <dt class="col-sm-4">Описание</dt><dd class="col-sm-8" style="white-space: pre-wrap;"><?= View::e($extension['description'] ?: '—') ?></dd>
                 </dl>
             </div>

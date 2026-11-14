@@ -104,7 +104,15 @@
   расположено между «Владелец» и «Статус». Для внешних номеров доступен
   свой набор типов (Городской (DID) — по умолчанию, Сотовый (DID),
   CallTracking, Other) и привязка к юрлицу, провайдеру (список
-  провайдеров фильтруется по выбранному юрлицу) и транку. Поле
+  провайдеров фильтруется по выбранному юрлицу) и транку. У внешних
+  номеров, кроме статусов «Активен» и «Отключён», есть **«Переадресован»**
+  и **«Резерв»**. При статусе «Переадресован» обязательно поле
+  «Переадресован на» — внешний номер, выбирается поиском по первым цифрам
+  (от 3; код страны 7/8 можно не вводить). Нельзя переадресовать номер сам
+  на себя и по кругу. На карточке переадресованного номера и в списке
+  видно, куда он переадресован, а на карточке номера-цели — с каких
+  номеров на него сделана переадресация. Номер, на который переадресованы
+  другие номера, нельзя удалить или сделать внутренним. Поле
   «Связанный сценарий» и «Контекст диалплана» показываются в одной
   строке. Если у внешнего номера выбран тип CallTracking, поле
   «Подразделение» вместо стандартного места показывается рядом с полем
@@ -500,6 +508,7 @@ mysql --default-character-set=utf8mb4 -u pbxdoc -p pbxdoc < database/migrations/
 mysql --default-character-set=utf8mb4 -u pbxdoc -p pbxdoc < database/migrations/0010_extension_division.sql
 mysql --default-character-set=utf8mb4 -u pbxdoc -p pbxdoc < database/migrations/0011_department_operator_greeting.sql
 mysql --default-character-set=utf8mb4 -u pbxdoc -p pbxdoc < database/migrations/0012_route_excluded_extensions.sql
+mysql --default-character-set=utf8mb4 -u pbxdoc -p pbxdoc < database/migrations/0013_extension_forwarding.sql
 ```
 
 Миграция `0001_departments_equipment_extension_categories.sql`:
@@ -627,6 +636,12 @@ chown www-data:www-data storage/music   # замените на пользова
 Миграция `0012_route_excluded_extensions.sql`:
 - создаёт таблицу `route_excluded_extensions` — внутренние номера,
   исключённые из исходящего маршрута с типом отбора «Подразделения».
+
+Миграция `0013_extension_forwarding.sql`:
+- добавляет в `extensions` колонку `forward_to_extension_id` — номер, на
+  который переадресован внешний номер со статусом «Переадресован». Новые
+  статусы (`forwarded`, `reserve`) хранятся в существующей колонке
+  `status`.
 
 ## Выгрузка в Excel и PDF
 

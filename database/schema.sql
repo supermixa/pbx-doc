@@ -343,6 +343,9 @@ CREATE TABLE IF NOT EXISTS extensions (
     caller_id_extension_id  INT UNSIGNED        NULL,
     -- Отдел (справочник «Отделы») — только category=internal, type=internal
     division_id             INT UNSIGNED        NULL,
+    -- Переадресация (только внешние номера со статусом forwarded): внешний
+    -- номер, на который переадресован этот номер
+    forward_to_extension_id INT UNSIGNED        NULL,
     status                  VARCHAR(20)         NOT NULL DEFAULT 'active',
     description             TEXT                NULL,
     created_by              INT UNSIGNED        NULL,
@@ -360,6 +363,7 @@ CREATE TABLE IF NOT EXISTS extensions (
     CONSTRAINT fk_extensions_calltracking_target FOREIGN KEY (calltracking_target_id) REFERENCES calltracking_targets(id) ON DELETE SET NULL,
     CONSTRAINT fk_extensions_caller_id FOREIGN KEY (caller_id_extension_id) REFERENCES extensions(id) ON DELETE SET NULL,
     CONSTRAINT fk_extensions_division FOREIGN KEY (division_id) REFERENCES divisions(id) ON DELETE SET NULL,
+    CONSTRAINT fk_extensions_forward_to FOREIGN KEY (forward_to_extension_id) REFERENCES extensions(id) ON DELETE SET NULL,
     CONSTRAINT fk_extensions_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
     CONSTRAINT fk_extensions_updated_by FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

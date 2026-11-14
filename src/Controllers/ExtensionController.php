@@ -186,6 +186,7 @@ class ExtensionController
             'queueSettings' => ExtensionNumber::queueSettings((int)$extension['id']),
             'memberships' => ExtensionNumber::groupMembershipsFor((int)$extension['id']),
             'callerIdUsers' => ExtensionNumber::callerIdUsers((int)$extension['id']),
+            'forwardedFrom' => ExtensionNumber::forwardedFrom((int)$extension['id']),
             'history' => AuditLog::forEntity('extension', (int)$extension['id']),
         ]);
     }
@@ -331,6 +332,13 @@ class ExtensionController
         $id = (int)$params['id'];
         $old = ExtensionNumber::findRaw($id);
         if ($old) {
+            $forwardedFrom = ExtensionNumber::forwardedFrom($id);
+            if ($forwardedFrom) {
+                $names = implode(', ', array_column($forwardedFrom, 'number'));
+                Flash::error("Нельзя удалить номер «{$old['number']}» — на него переадресованы номера: {$names}. Сначала измените их переадресацию.");
+                header('Location: /extensions/' . $id);
+                return;
+            }
             $memberships = ExtensionNumber::groupMembershipsFor($id);
             if (!empty($memberships)) {
                 $names = implode(', ', array_map(fn($m) => $m['number'], $memberships));
@@ -400,7 +408,16 @@ class ExtensionController
         $q = trim($_GET['q'] ?? '');
         $excludeId = isset($_GET['exclude']) ? (int)$_GET['exclude'] : null;
 
-        if ($mode === 'caller_id') {
+        if ($mode === 'forward') {
+            // Цель переадресации: внешние номера, начинающиеся с введённых цифр (от 3)
+            $results = array_map(fn($r) => [
+                'type' => 'extension',
+                'id' => (int)$r['id'],
+                'label' => $r['number'] . ' — ' . Labels::extensionTypeLabel($r['type'], 'external')
+                    . ($r['owner'] ? ' (' . $r['owner'] . ')' : '')
+                    . ($r['status'] !== 'active' ? ' · ' . Labels::statusLabel($r['status']) : ''),
+            ], ExtensionNumber::forwardCandidates($q, $excludeId, 20));
+        } elseif ($mode === 'caller_id') {
             // АОН внутреннего номера: внешние «Городской»/«Сотовый», поиск от 3 цифр
             $results = array_map(fn($r) => [
                 'type' => 'extension',
@@ -466,6 +483,22 @@ class ExtensionController
         ]);
     }
 
+    /** Приводит ли цепочка переадресаций от $targetId обратно к $selfId */
+    private function forwardLoops(int $targetId, int $selfId): bool
+    {
+        $seen = [];
+        $id = $targetId;
+        while ($id && !isset($seen[$id]) && count($seen) < 50) {
+            if ($id === $selfId) {
+                return true;
+            }
+            $seen[$id] = true;
+            $row = ExtensionNumber::findRaw($id);
+            $id = ($row && $row['status'] === 'forwarded') ? (int)($row['forward_to_extension_id'] ?? 0) : 0;
+        }
+        return false;
+    }
+
     /** Убирает номер из маршрутов, АОН которых он больше не получает (см. validate()) */
     private function detachFromRoutes(int $extensionId, string $number): void
     {
@@ -491,6 +524,11 @@ class ExtensionController
             $id = (int)($row['caller_id_extension_id'] ?? 0);
             $cid = $id > 0 ? ExtensionNumber::findRaw($id) : null;
             $row['caller_id_extension_id'] = $cid ? $cid['number'] : ($id > 0 ? "#{$id}" : null);
+        }
+        if (array_key_exists('forward_to_extension_id', $row)) {
+            $id = (int)($row['forward_to_extension_id'] ?? 0);
+            $target = $id > 0 ? ExtensionNumber::findRaw($id) : null;
+            $row['forward_to_extension_id'] = $target ? $target['number'] : ($id > 0 ? "#{$id}" : null);
         }
         if (array_key_exists('division_id', $row)) {
             $id = (int)($row['division_id'] ?? 0);
@@ -537,7 +575,33 @@ class ExtensionController
             ->in('type', $allowedTypes, 'Тип')
             ->maxLength('owner', 150, 'Владелец')
             ->maxLength('context', 100, 'Контекст')
-            ->in('status', ExtensionNumber::STATUSES, 'Статус');
+            ->in('status', $category === 'external' ? ExtensionNumber::EXTERNAL_STATUSES : ExtensionNumber::STATUSES, 'Статус');
+
+        // Переадресация — только у внешнего номера со статусом «Переадресован»:
+        // обязателен внешний номер-цель (не сам номер и без переадресации по кругу)
+        $status = $v->get('status', 'active') ?: 'active';
+        $forwardToId = null;
+        if ($category === 'external' && $status === 'forwarded') {
+            $rawForward = trim((string)($input['forward_to_extension_id'] ?? ''));
+            $target = ctype_digit($rawForward) ? ExtensionNumber::findRaw((int)$rawForward) : null;
+            if ($rawForward === '') {
+                $v->addError('forward_to_extension_id', 'Укажите номер, на который переадресован этот номер');
+            } elseif (!$target || $target['category'] !== 'external') {
+                $v->addError('forward_to_extension_id', 'Переадресовать можно только на внешний номер');
+            } elseif ($currentId !== null && (int)$target['id'] === $currentId) {
+                $v->addError('forward_to_extension_id', 'Номер нельзя переадресовать сам на себя');
+            } elseif ($currentId !== null && $this->forwardLoops((int)$target['id'], $currentId)) {
+                $v->addError('forward_to_extension_id', 'Переадресация по кругу: номер ' . $target['number']
+                    . ' (или следующий за ним) уже переадресован на этот номер');
+            } else {
+                $forwardToId = (int)$target['id'];
+            }
+        }
+        // На номер переадресованы другие номера — он должен остаться внешним
+        if ($currentId !== null && $category !== 'external' && ExtensionNumber::forwardedFrom($currentId)) {
+            $from = implode(', ', array_column(ExtensionNumber::forwardedFrom($currentId), 'number'));
+            $v->addError('category', 'Нельзя сменить категорию: на этот номер переадресованы номера ' . $from . '. Сначала измените их переадресацию.');
+        }
 
         // Дубли внутренних номеров запрещены — иначе диалплан не сможет
         // однозначно определить, куда направлять вызов на такой номер.
@@ -653,6 +717,7 @@ class ExtensionController
             'calltracking_target_id' => $calltrackingTargetId,
             'caller_id_extension_id' => $callerIdExtensionId,
             'division_id' => $divisionId,
+            'forward_to_extension_id' => $forwardToId,
             'status' => $v->get('status', 'active') ?: 'active',
             'description' => $v->get('description'),
         ];

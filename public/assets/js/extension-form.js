@@ -114,10 +114,44 @@
         toggleQueueRingGroupSections();
     }
 
+    // ------------------------------------------------------------------
+    // Статусы «Переадресован»/«Резерв» — только у внешних номеров;
+    // поле «Переадресован на» — только при статусе «Переадресован»
+    // ------------------------------------------------------------------
+    var statusSelect = document.getElementById('status-select');
+    function toggleStatusOptions() {
+        if (!statusSelect) {
+            return;
+        }
+        var isExternal = categorySelect.value === 'external';
+        Array.prototype.forEach.call(statusSelect.options, function (opt) {
+            if (opt.getAttribute('data-external-only')) {
+                opt.hidden = !isExternal;
+                opt.disabled = !isExternal;
+            }
+        });
+        var current = statusSelect.options[statusSelect.selectedIndex];
+        if (current && current.disabled) {
+            statusSelect.value = 'active';
+        }
+        var forwardField = document.getElementById('forward-field');
+        var forwardValue = document.getElementById('forward-value');
+        if (forwardField && forwardValue) {
+            var show = isExternal && statusSelect.value === 'forwarded';
+            forwardField.style.display = show ? '' : 'none';
+            forwardValue.disabled = !show;
+        }
+    }
+    if (statusSelect) {
+        statusSelect.addEventListener('change', toggleStatusOptions);
+    }
+    categorySelect.addEventListener('change', toggleStatusOptions);
+
     categorySelect.addEventListener('change', toggleByCategory);
     typeInternalSelect.addEventListener('change', toggleQueueRingGroupSections);
     typeExternalSelect.addEventListener('change', toggleCalltrackingField);
     toggleByCategory();
+    toggleStatusOptions();
 
     var legalEntitySelect = document.getElementById('legal-entity-select');
     var providerSelect = document.getElementById('provider-select');
@@ -471,6 +505,89 @@
                 results.style.display = 'none';
             }
             if (e.target.id === 'caller-id-clear') {
+                e.preventDefault();
+                valueField.value = '';
+                selectedBox.innerHTML = notSet;
+            }
+        });
+    })();
+
+    // ------------------------------------------------------------------
+    // «Переадресован на» — поиск внешних номеров по первым цифрам (от 3)
+    // ------------------------------------------------------------------
+    (function () {
+        var input = document.getElementById('forward-search');
+        var results = document.getElementById('forward-results');
+        var selectedBox = document.getElementById('forward-selected');
+        var valueField = document.getElementById('forward-value');
+        if (!input || !results || !selectedBox || !valueField) {
+            return;
+        }
+        var notSet = '<span class="text-muted small">не выбран</span>';
+
+        function showHint(text) {
+            results.innerHTML = '<div class="list-group-item text-muted small">' + escapeHtml(text) + '</div>';
+            results.style.display = '';
+        }
+
+        var search = debounce(function () {
+            var digits = input.value.replace(/\D+/g, '');
+            if (digits.length < 3) {
+                if (input.value.trim() === '') {
+                    results.style.display = 'none';
+                    results.innerHTML = '';
+                } else {
+                    showHint('Введите не меньше 3 первых цифр номера');
+                }
+                return;
+            }
+            var url = '/extensions/search-targets?mode=forward&q=' + encodeURIComponent(digits);
+            if (typeof CURRENT_EXTENSION_ID !== 'undefined' && CURRENT_EXTENSION_ID) {
+                url += '&exclude=' + CURRENT_EXTENSION_ID;
+            }
+            fetch(url)
+                .then(function (r) { return r.json(); })
+                .then(function (items) {
+                    if (input.value.replace(/\D+/g, '') !== digits) {
+                        return;
+                    }
+                    results.innerHTML = '';
+                    if (!items.length) {
+                        showHint('Внешних номеров, начинающихся с ' + digits + ', нет');
+                        return;
+                    }
+                    items.forEach(function (item) {
+                        var b = document.createElement('button');
+                        b.type = 'button';
+                        b.className = 'list-group-item list-group-item-action';
+                        b.textContent = item.label;
+                        b.addEventListener('click', function () {
+                            valueField.value = item.id;
+                            selectedBox.innerHTML = '<span class="badge text-bg-light text-dark border">' + escapeHtml(item.label) +
+                                ' <a href="#" id="forward-clear" class="text-danger text-decoration-none" title="Очистить">✕</a></span>';
+                            input.value = '';
+                            input.classList.remove('is-invalid');
+                            results.style.display = 'none';
+                            results.innerHTML = '';
+                        });
+                        results.appendChild(b);
+                    });
+                    results.style.display = '';
+                })
+                .catch(function () { results.style.display = 'none'; });
+        }, 250);
+
+        input.addEventListener('input', search);
+        input.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+            }
+        });
+        document.addEventListener('click', function (e) {
+            if (e.target !== input && !results.contains(e.target)) {
+                results.style.display = 'none';
+            }
+            if (e.target.id === 'forward-clear') {
                 e.preventDefault();
                 valueField.value = '';
                 selectedBox.innerHTML = notSet;

@@ -23,13 +23,13 @@ use App\Core\View;
             <td><?= View::e($e['owner'] ?: '—') ?></td>
             <td><?= View::e($e['department_name'] ?? '—') ?></td>
             <td><?= View::e($e['calltracking_target_name'] ?? '—') ?></td>
-            <td><span class="badge <?= $e['status'] === 'active' ? 'text-bg-success' : 'text-bg-secondary' ?>"><?= View::e(Labels::statusLabel($e['status'])) ?></span></td>
+            <td><span class="badge <?= Labels::statusBadgeClass($e['status']) ?>"><?= View::e(Labels::statusLabel($e['status'])) ?></span><?php if ($e['status'] === 'forwarded'): ?> <span class="small text-nowrap">→ <?= View::e($e['forward_to_number'] ?? '?') ?></span><?php endif; ?></td>
             <td class="text-muted small"><?= View::e($e['updated_by_name'] ?? '—') ?>, <?= View::e(date('d.m.Y H:i', strtotime($e['updated_at']))) ?></td>
         <?php else: ?>
             <td><?= View::e($e['owner'] ?: '—') ?></td>
             <td><?= View::e($e['department_name'] ?? '—') ?></td>
             <?php if (!empty($isInternalTab)): ?><td><?= View::e($e['division_name'] ?? '—') ?></td><?php endif; ?>
-            <td><span class="badge <?= $e['status'] === 'active' ? 'text-bg-success' : 'text-bg-secondary' ?>"><?= View::e(Labels::statusLabel($e['status'])) ?></span></td>
+            <td><span class="badge <?= Labels::statusBadgeClass($e['status']) ?>"><?= View::e(Labels::statusLabel($e['status'])) ?></span></td>
             <td class="text-muted small"><?= View::e($e['updated_by_name'] ?? '—') ?>, <?= View::e(date('d.m.Y H:i', strtotime($e['updated_at']))) ?></td>
         <?php endif; ?>
     </tr>

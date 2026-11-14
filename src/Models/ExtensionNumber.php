@@ -12,6 +12,8 @@ use App\Core\Labels;
 class ExtensionNumber
 {
     public const STATUSES = ['active', 'inactive'];
+    /** Статусы внешних номеров: к общим добавляются «Переадресован» и «Резерв» */
+    public const EXTERNAL_STATUSES = ['active', 'inactive', 'forwarded', 'reserve'];
     public const CATEGORIES = ['internal', 'external'];
 
     /** Типы для внутренних номеров (category = internal) */
@@ -31,6 +33,7 @@ class ExtensionNumber
     private static array $fillable = [
         'number', 'category', 'type', 'owner', 'context', 'scenario_id', 'department_id',
         'legal_entity_id', 'provider_id', 'trunk_id', 'calltracking_target_id', 'caller_id_extension_id', 'division_id',
+        'forward_to_extension_id',
         'status', 'description',
     ];
 
@@ -48,6 +51,7 @@ class ExtensionNumber
                 LEFT JOIN calltracking_goals ctg ON ctg.id = ct.goal_id
                 LEFT JOIN extensions cid ON cid.id = e.caller_id_extension_id
                 LEFT JOIN divisions dv ON dv.id = e.division_id
+                LEFT JOIN extensions fwd ON fwd.id = e.forward_to_extension_id
                 LEFT JOIN users cu ON cu.id = e.created_by
                 LEFT JOIN users uu ON uu.id = e.updated_by';
 
@@ -55,7 +59,7 @@ class ExtensionNumber
                        le.name AS legal_entity_name, pr.name AS provider_name, tr.name AS trunk_name,
                        ctg.name AS calltracking_target_name, ct.goal_id AS calltracking_goal_id,
                        cid.number AS caller_id_number, cid.type AS caller_id_type,
-                       dv.name AS division_name,
+                       dv.name AS division_name, fwd.number AS forward_to_number,
                        cu.name AS created_by_name, uu.name AS updated_by_name';
 
     /**
@@ -350,6 +354,39 @@ class ExtensionNumber
         return (int)Db::connection()->query(
             "SELECT COUNT(*) FROM extensions WHERE category = 'internal' AND type = 'internal' AND (owner IS NULL OR TRIM(owner) = '')"
         )->fetchColumn();
+    }
+
+    /**
+     * Цели переадресации внешнего номера: внешние номера, номер которых
+     * (без пробелов/скобок/«+») начинается с введённых цифр — с кодом
+     * страны 7/8 или без него (по «383» найдётся +7 (383) …). Сам номер
+     * ($excludeId) в список не попадает.
+     */
+    public static function forwardCandidates(string $digits, ?int $excludeId, int $limit = 20): array
+    {
+        $digits = preg_replace('/\D+/', '', $digits);
+        if (strlen($digits) < 3) {
+            return [];
+        }
+        $sql = "SELECT id, number, type, owner, status FROM extensions
+                WHERE category = 'external' AND id <> :exclude
+                  AND (REGEXP_REPLACE(number, '[^0-9]', '') LIKE :digits1
+                       OR (LEFT(REGEXP_REPLACE(number, '[^0-9]', ''), 1) IN ('7', '8')
+                           AND SUBSTRING(REGEXP_REPLACE(number, '[^0-9]', ''), 2) LIKE :digits2))
+                ORDER BY number LIMIT " . max(1, min(50, $limit));
+        $stmt = Db::connection()->prepare($sql);
+        $stmt->execute(['exclude' => $excludeId ?? 0, 'digits1' => $digits . '%', 'digits2' => $digits . '%']);
+        return $stmt->fetchAll();
+    }
+
+    /** Номера, переадресованные на этот номер */
+    public static function forwardedFrom(int $extensionId): array
+    {
+        $stmt = Db::connection()->prepare(
+            'SELECT id, number, owner, type FROM extensions WHERE forward_to_extension_id = :id ORDER BY number'
+        );
+        $stmt->execute(['id' => $extensionId]);
+        return $stmt->fetchAll();
     }
 
     /** Внутренние номера, у которых этот внешний номер выбран АОН-ом */

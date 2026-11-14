@@ -9,6 +9,7 @@
  * @var array  $omitColumns   колонки, которые на этой карточке не нужны
  */
 use App\Core\ExtensionTable;
+use App\Core\Labels;
 use App\Core\View;
 ?>
 <?php $totalNumbers = array_sum(array_map(fn($g) => count($g['rows']), $numberGroups)); ?>
@@ -47,7 +48,8 @@ use App\Core\View;
                                     <?php elseif ($c === 'caller_id' && !empty($e['caller_id_extension_id']) && $val !== ''): ?>
                                         <a href="/extensions/<?= (int)$e['caller_id_extension_id'] ?>"><?= View::e($val) ?></a>
                                     <?php elseif ($c === 'status'): ?>
-                                        <span class="badge <?= $e['status'] === 'active' ? 'text-bg-success' : 'text-bg-secondary' ?>"><?= View::e($val) ?></span>
+                                        <span class="badge <?= Labels::statusBadgeClass($e['status']) ?>"><?= View::e(Labels::statusLabel($e['status'])) ?></span>
+                                        <?php if ($e['status'] === 'forwarded'): ?><span class="small text-nowrap">→ <?php if (!empty($e['forward_to_extension_id'])): ?><a href="/extensions/<?= (int)$e['forward_to_extension_id'] ?>"><?= View::e($e['forward_to_number'] ?? '') ?></a><?php else: ?>?<?php endif; ?></span><?php endif; ?>
                                     <?php else: ?>
                                         <span style="white-space: pre-wrap;"><?= View::e($val !== '' ? $val : '—') ?></span>
                                     <?php endif; ?>

@@ -69,11 +69,42 @@ $qs = $queueSettings ?? null;
 
             <div class="col-md-4">
                 <label class="form-label">Статус</label>
-                <select name="status" class="form-select">
-                    <?php foreach (ExtensionNumber::STATUSES as $s): ?>
-                        <option value="<?= $s ?>" <?= ($extension['status'] ?? 'active') === $s ? 'selected' : '' ?>><?= View::e(Labels::statusLabel($s)) ?></option>
+                <select name="status" id="status-select" class="form-select <?= isset($errors['status']) ? 'is-invalid' : '' ?>">
+                    <?php foreach (ExtensionNumber::EXTERNAL_STATUSES as $s): ?>
+                        <?php $externalOnly = !in_array($s, ExtensionNumber::STATUSES, true); ?>
+                        <option value="<?= $s ?>" <?= $externalOnly ? 'data-external-only="1"' : '' ?> <?= ($extension['status'] ?? 'active') === $s ? 'selected' : '' ?>><?= View::e(Labels::statusLabel($s)) ?></option>
                     <?php endforeach; ?>
                 </select>
+                <?php if (isset($errors['status'])): ?><div class="invalid-feedback"><?= View::e($errors['status']) ?></div><?php endif; ?>
+            </div>
+
+            <?php
+            // Переадресация (внешний номер со статусом «Переадресован»): подпись выбранного номера
+            $forwardId = (int)($extension['forward_to_extension_id'] ?? 0);
+            $forwardLabel = null;
+            if ($forwardId > 0) {
+                $fwdRow = ExtensionNumber::findRaw($forwardId);
+                if ($fwdRow) {
+                    $forwardLabel = $fwdRow['number'] . ' — ' . Labels::extensionTypeLabel($fwdRow['type'], 'external') . ($fwdRow['owner'] ? ' (' . $fwdRow['owner'] . ')' : '');
+                }
+            }
+            ?>
+            <div class="col-md-4" id="forward-field">
+                <label class="form-label">Переадресован на *</label>
+                <div class="position-relative">
+                    <input type="text" id="forward-search" class="form-control <?= isset($errors['forward_to_extension_id']) ? 'is-invalid' : '' ?>" autocomplete="off" inputmode="numeric" placeholder="Первые цифры внешнего номера (от 3)">
+                    <div class="list-group position-absolute w-100 shadow-sm" id="forward-results" style="z-index: 20; max-height: 260px; overflow-y: auto; display:none;"></div>
+                    <?php if (isset($errors['forward_to_extension_id'])): ?><div class="invalid-feedback"><?= View::e($errors['forward_to_extension_id']) ?></div><?php endif; ?>
+                </div>
+                <div id="forward-selected" class="mt-1">
+                    <?php if ($forwardLabel): ?>
+                        <span class="badge text-bg-light text-dark border"><?= View::e($forwardLabel) ?> <a href="#" id="forward-clear" class="text-danger text-decoration-none" title="Очистить">✕</a></span>
+                    <?php else: ?>
+                        <span class="text-muted small">не выбран</span>
+                    <?php endif; ?>
+                </div>
+                <input type="hidden" name="forward_to_extension_id" id="forward-value" value="<?= $forwardLabel ? $forwardId : '' ?>">
+                <div class="form-text">Внешний номер, на который переадресуются звонки.</div>
             </div>
 
             <?php

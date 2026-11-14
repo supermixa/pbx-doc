@@ -82,7 +82,8 @@ final class ExtensionTable
             'division' => $row['division_name'] ?? '',
             'calltracking_goal' => $row['calltracking_target_name'] ?? '',
             'caller_id' => $row['caller_id_number'] ?? '',
-            'status' => Labels::statusLabel((string)($row['status'] ?? '')),
+            'status' => Labels::statusLabel((string)($row['status'] ?? ''))
+                . (($row['status'] ?? '') === 'forwarded' ? ' → ' . ($row['forward_to_number'] ?? '?') : ''),
             'description' => $row['description'] ?? '',
             default => '',
         };

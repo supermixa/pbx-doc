@@ -121,6 +121,7 @@ class Labels
         'calltracking_target_id' => 'Цель Calltracking',
         'caller_id_extension_id' => 'АОН',
         'division_id' => 'Отдел',
+        'forward_to_extension_id' => 'Переадресован на',
         'excluded' => 'Исключены из маршрута',
         'target' => 'Цель',
         'goals' => 'Цели',
@@ -158,7 +159,20 @@ class Labels
         return match ($status) {
             'active' => 'Активен',
             'inactive' => 'Отключён',
+            'forwarded' => 'Переадресован',
+            'reserve' => 'Резерв',
             default => (string)$status,
+        };
+    }
+
+    /** Цвет бейджа статуса номера/транка */
+    public static function statusBadgeClass(?string $status): string
+    {
+        return match ($status) {
+            'active' => 'text-bg-success',
+            'forwarded' => 'text-bg-info',
+            'reserve' => 'text-bg-warning',
+            default => 'text-bg-secondary',
         };
     }
 
