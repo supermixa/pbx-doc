@@ -102,6 +102,7 @@ class ExtensionImportController
             'file' => (string)$file['name'],
             // в сессию — только то, что можно импортировать
             'rows' => array_values(array_filter($parsed['rows'], fn($r) => $r['status'] !== 'error')),
+            'missing' => $parsed['missing'],
         ];
 
         View::render('extensions/import_preview', [
@@ -134,10 +135,20 @@ class ExtensionImportController
         $userId = Auth::id();
         $audit = [];
 
+        // Какие недостающие подразделения/отделы пользователь решил создать
+        $create = [];
+        foreach (ExtensionCsvImport::CREATABLE as $field => $meta) {
+            $keys = $_POST['create_' . $field] ?? [];
+            $create[$field] = is_array($keys) ? array_values(array_map('strval', $keys)) : [];
+        }
+        $createdRefs = [];
+
         $conn = Db::connection();
         $conn->beginTransaction();
         try {
-            foreach ($stored['rows'] as $row) {
+            $resolved = ExtensionCsvImport::resolveMissing($stored['rows'], $stored['missing'] ?? [], $create, $userId);
+            $createdRefs = $resolved['created'];
+            foreach ($resolved['rows'] as $row) {
                 $wasDuplicate = $row['status'] === 'duplicate';
                 $row['errors'] = [];
                 ExtensionCsvImport::classify($row); // база могла измениться после проверки
@@ -199,6 +210,9 @@ class ExtensionImportController
             return;
         }
 
+        foreach ($createdRefs as $ref) {
+            AuditLogger::logCreate($ref['field'], $ref['id'], ['name' => $ref['name']]);
+        }
         foreach ($audit as $entry) {
             if ($entry[0] === 'create') {
                 AuditLogger::logCreate('extension', $entry[1], ExtensionController::forAudit($entry[2]));
@@ -212,6 +226,7 @@ class ExtensionImportController
             'fileName' => $stored['file'],
             'results' => $results,
             'counts' => $counts,
+            'createdRefs' => $createdRefs,
         ]);
     }
 

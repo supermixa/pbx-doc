@@ -26,6 +26,7 @@ use App\Core\View;
         <div class="card mb-3">
             <div class="card-body">
                 <dl class="row mb-0">
+                    <dt class="col-sm-4">Приветствие оператора</dt><dd class="col-sm-8" style="white-space: pre-wrap;"><?= View::e(($department['operator_greeting'] ?? '') ?: '—') ?></dd>
                     <dt class="col-sm-4">Описание</dt><dd class="col-sm-8" style="white-space: pre-wrap;"><?= View::e($department['description'] ?: '—') ?></dd>
                 </dl>
             </div>

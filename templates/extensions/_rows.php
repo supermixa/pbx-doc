@@ -6,11 +6,12 @@ use App\Core\View;
  * Partial: строки таблицы номеров (используется и полной страницей
  * /extensions, и AJAX-эндпоинтом живого поиска /extensions/search-rows —
  * чтобы колонки не приходилось дублировать в двух местах).
- * Ожидает $extensions и $isExternalTab.
+ * Ожидает $extensions, $isExternalTab и $isInternalTab (вкладка «Внутренние» —
+ * дополнительная колонка «Отдел»).
  */
 ?>
 <?php if (empty($extensions)): ?>
-    <tr><td colspan="<?= $isExternalTab ? 9 : 5 ?>" class="text-center text-muted py-4">Записей не найдено</td></tr>
+    <tr><td colspan="<?= $isExternalTab ? 9 : (!empty($isInternalTab) ? 6 : 5) ?>" class="text-center text-muted py-4">Записей не найдено</td></tr>
 <?php endif; ?>
 <?php foreach ($extensions as $e): ?>
     <tr style="cursor:pointer" onclick="location.href='/extensions/<?= (int)$e['id'] ?>'">
@@ -27,6 +28,7 @@ use App\Core\View;
         <?php else: ?>
             <td><?= View::e($e['owner'] ?: '—') ?></td>
             <td><?= View::e($e['department_name'] ?? '—') ?></td>
+            <?php if (!empty($isInternalTab)): ?><td><?= View::e($e['division_name'] ?? '—') ?></td><?php endif; ?>
             <td><span class="badge <?= $e['status'] === 'active' ? 'text-bg-success' : 'text-bg-secondary' ?>"><?= View::e(Labels::statusLabel($e['status'])) ?></span></td>
             <td class="text-muted small"><?= View::e($e['updated_by_name'] ?? '—') ?>, <?= View::e(date('d.m.Y H:i', strtotime($e['updated_at']))) ?></td>
         <?php endif; ?>

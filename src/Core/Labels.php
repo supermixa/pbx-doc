@@ -92,6 +92,7 @@ class Labels
         'context' => 'Контекст',
         'status' => 'Статус',
         'description' => 'Описание',
+        'operator_greeting' => 'Приветствие оператора',
         'direction' => 'Направление',
         'pattern' => 'Шаблон номера',
         'trunk_id' => 'Транк',

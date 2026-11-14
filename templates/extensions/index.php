@@ -86,13 +86,14 @@ if (!function_exists('extTabUrl')) {
                     <?php else: ?>
                         <th>Владелец</th>
                         <th>Подразделение</th>
+                        <?php if ($tab === 'internal'): ?><th>Отдел</th><?php endif; ?>
                         <th>Статус</th>
                         <th>Изменён</th>
                     <?php endif; ?>
                 </tr>
             </thead>
             <tbody id="extensions-rows">
-            <?php require __DIR__ . '/_rows.php'; ?>
+            <?php $isInternalTab = $tab === 'internal'; require __DIR__ . '/_rows.php'; ?>
             </tbody>
         </table>
     </div>

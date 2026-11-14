@@ -190,6 +190,7 @@ class DepartmentController
 
         $data = [
             'name' => $v->get('name'),
+            'operator_greeting' => $v->get('operator_greeting'),
             'description' => $v->get('description'),
         ];
 

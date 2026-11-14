@@ -6,7 +6,7 @@ use App\Core\Db;
 
 class Department
 {
-    private static array $fillable = ['name', 'description'];
+    private static array $fillable = ['name', 'operator_greeting', 'description'];
 
     public static function all(string $search = ''): array
     {

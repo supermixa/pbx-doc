@@ -71,7 +71,15 @@ session_set_cookie_params([
 ]);
 session_start();
 
-date_default_timezone_set('Asia/Novosibirsk');
+// Часовой пояс приложения — параметр APP_TIMEZONE в .env (идентификатор
+// IANA, например Asia/Novosibirsk, Europe/Moscow). По нему же выставляется
+// часовой пояс сессии MySQL (см. Db::connection()), чтобы время записей
+// (created_at/updated_at, журнал изменений) совпадало со временем приложения.
+$appTimezone = trim((string)Env::get('APP_TIMEZONE', 'Asia/Novosibirsk'));
+if (!in_array($appTimezone, timezone_identifiers_list(), true)) {
+    $appTimezone = 'Asia/Novosibirsk';
+}
+date_default_timezone_set($appTimezone);
 
 $router = new Router();
 

@@ -21,6 +21,14 @@ $kindLabels = [
     <span class="badge text-bg-secondary fs-6">Пропущено: <?= (int)$counts['skipped'] ?></span>
 </div>
 
+<?php if (!empty($createdRefs)): ?>
+    <div class="alert alert-info py-2">
+        Созданы в справочниках:
+        <?php foreach ($createdRefs as $i => $ref): ?><?= $i > 0 ? ', ' : '' ?><?= $ref['field'] === 'division' ? 'отдел' : 'подразделение' ?>
+            <a href="/<?= $ref['field'] === 'division' ? 'divisions' : 'departments' ?>/<?= (int)$ref['id'] ?>">«<?= View::e($ref['name']) ?>»</a><?php endforeach; ?>
+    </div>
+<?php endif; ?>
+
 <div class="card mb-3">
     <div class="table-responsive">
         <table class="table table-sm mb-0">

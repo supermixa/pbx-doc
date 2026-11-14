@@ -122,6 +122,8 @@ CREATE TABLE IF NOT EXISTS routes (
 CREATE TABLE IF NOT EXISTS departments (
     id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     name            VARCHAR(150)        NOT NULL,
+    -- «Приветствие оператора» — текст, которым оператор отвечает на звонок
+    operator_greeting TEXT              NULL,
     description     TEXT                NULL,
     created_by      INT UNSIGNED        NULL,
     updated_by      INT UNSIGNED        NULL,

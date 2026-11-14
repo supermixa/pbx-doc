@@ -90,6 +90,7 @@ class ExtensionController
         View::render('extensions/_rows', [
             'extensions' => ExtensionNumber::all($effectiveSearch, $category, $type ?? ''),
             'isExternalTab' => $tab === 'external',
+            'isInternalTab' => $tab === 'internal',
         ], null);
     }
 

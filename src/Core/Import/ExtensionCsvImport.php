@@ -32,6 +32,19 @@ final class ExtensionCsvImport
     public const MODE_REPLACE = 'replace';
     public const MODE_SKIP = 'skip';
 
+    /**
+     * Метка «запись будет создана при импорте» в значениях строки вместо ID
+     * подразделения/отдела, которых ещё нет в справочнике:
+     * '__new__:<поле>:<нормализованное название>'.
+     */
+    public const NEW_MARKER = '__new__:';
+
+    /** Справочники, недостающие записи которых можно создать при импорте */
+    public const CREATABLE = [
+        'department' => ['db' => 'department_id', 'label' => 'Подразделение', 'directory' => '«Подразделения»'],
+        'division' => ['db' => 'division_id', 'label' => 'Отдел', 'directory' => '«Отделы»'],
+    ];
+
     /** Колонки шаблона (поле => заголовок) — в этом порядке */
     public const COLUMNS = [
         'number' => 'Номер',
@@ -94,11 +107,17 @@ final class ExtensionCsvImport
     /**
      * Разбирает и проверяет файл.
      *
-     * @return array{fatal: ?string, rows: array, columns: string[], delimiter: string, encoding: string}
+     * missing — подразделения/отделы из файла, которых нет в справочниках,
+     * сгруппированные по названию (без учёта регистра):
+     *   ['department' => [key => ['name' => ..., 'lines' => [...], 'numbers' => [...]]], 'division' => [...]]
+     * Учитываются только строки без других ошибок.
+     *
+     * @return array{fatal: ?string, rows: array, columns: string[], delimiter: string, encoding: string, missing: array}
      */
     public static function parse(string $content): array
     {
-        $result = ['fatal' => null, 'rows' => [], 'columns' => [], 'delimiter' => ';', 'encoding' => 'UTF-8'];
+        $result = ['fatal' => null, 'rows' => [], 'columns' => [], 'delimiter' => ';', 'encoding' => 'UTF-8',
+            'missing' => ['department' => [], 'division' => []]];
 
         if (str_starts_with($content, "\xEF\xBB\xBF")) {
             $content = substr($content, 3);
@@ -167,6 +186,16 @@ final class ExtensionCsvImport
                 }
             }
             self::classify($row);
+            if ($row['status'] !== 'error') {
+                foreach ($row['missing'] as $field => $name) {
+                    $key = self::missingKey($name);
+                    if (!isset($result['missing'][$field][$key])) {
+                        $result['missing'][$field][$key] = ['name' => $name, 'lines' => [], 'numbers' => []];
+                    }
+                    $result['missing'][$field][$key]['lines'][] = $row['line'];
+                    $result['missing'][$field][$key]['numbers'][] = $row['number'];
+                }
+            }
             $result['rows'][] = $row;
         }
         fclose($fh);
@@ -227,6 +256,7 @@ final class ExtensionCsvImport
             'present' => array_values(array_diff(array_keys($raw), ['number'])),
             'values' => [],    // колонка БД => значение (только для колонок, которые есть в файле)
             'errors' => [],
+            'missing' => [],   // поле => название из файла, которого нет в справочнике (можно создать)
             'status' => 'error',
             'existing_id' => null,
         ];
@@ -270,6 +300,14 @@ final class ExtensionCsvImport
                         $row['values'][$dbField] = $ids[0];
                     } elseif (count($ids) > 1) {
                         $row['errors'][] = "{$label} «{$value}»: в справочнике {$directory} несколько записей с таким названием";
+                    } elseif (isset(self::CREATABLE[$field])) {
+                        // Подразделения/отдела нет — предложим создать на экране проверки
+                        if (mb_strlen($value) > 150) {
+                            $row['errors'][] = "{$label} «{$value}»: название длиннее 150 символов";
+                        } else {
+                            $row['missing'][$field] = $value;
+                            $row['values'][$dbField] = self::NEW_MARKER . $field . ':' . self::missingKey($value);
+                        }
                     } else {
                         $row['errors'][] = "{$label} «{$value}» не найден(о) в справочнике {$directory}";
                     }
@@ -369,11 +407,76 @@ final class ExtensionCsvImport
         return $data;
     }
 
+    /** Ключ группы недостающей записи справочника (название без учёта регистра/пробелов) */
+    public static function missingKey(string $name): string
+    {
+        return md5(self::norm($name));
+    }
+
+    /**
+     * Создаёт отмеченные пользователем недостающие подразделения/отделы
+     * (если такое название тем временем уже появилось — берёт существующее)
+     * и подставляет их ID в строки вместо меток NEW_MARKER. Для записей,
+     * которые создавать не стали, поле у строк игнорируется — как если бы
+     * колонки не было в файле (у существующего номера значение не меняется).
+     *
+     * @param array $rows     строки из сессии
+     * @param array $missing  группы из parse()['missing']
+     * @param array $create   ['department' => [key, ...], 'division' => [key, ...]] — что создать
+     * @return array{rows: array, created: array<int, array{field: string, id: int, name: string}>}
+     */
+    public static function resolveMissing(array $rows, array $missing, array $create, ?int $userId): array
+    {
+        $ids = [];
+        $created = [];
+        foreach (self::CREATABLE as $field => $meta) {
+            $existing = [];
+            $options = $field === 'department' ? Department::options() : Division::options();
+            foreach ($options as $o) {
+                $existing[self::missingKey($o['name'])] = (int)$o['id'];
+            }
+            foreach ($missing[$field] ?? [] as $key => $group) {
+                if (!in_array($key, $create[$field] ?? [], true)) {
+                    continue;
+                }
+                if (isset($existing[$key])) {
+                    $ids[$field][$key] = $existing[$key];
+                    continue;
+                }
+                $data = ['name' => $group['name'], 'description' => null, 'created_by' => $userId];
+                $id = $field === 'department' ? Department::create($data) : Division::create($data);
+                $ids[$field][$key] = $id;
+                $created[] = ['field' => $field, 'id' => $id, 'name' => $group['name']];
+            }
+        }
+
+        foreach ($rows as &$row) {
+            foreach (self::CREATABLE as $field => $meta) {
+                $value = $row['values'][$meta['db']] ?? null;
+                if (!is_string($value) || !str_starts_with($value, self::NEW_MARKER)) {
+                    continue;
+                }
+                $key = substr($value, strlen(self::NEW_MARKER . $field . ':'));
+                if (isset($ids[$field][$key])) {
+                    $row['values'][$meta['db']] = $ids[$field][$key];
+                } else {
+                    unset($row['values'][$meta['db']]);
+                }
+            }
+        }
+        unset($row);
+        return ['rows' => $rows, 'created' => $created];
+    }
+
     /** Человекочитаемое значение поля для экрана проверки */
-    public static function display(string $dbField, $value): string
+    public static function display(string $dbField, $value, array $missingNames = []): string
     {
         if ($value === null || $value === '') {
             return '—';
+        }
+        if (is_string($value) && str_starts_with($value, self::NEW_MARKER)) {
+            $name = $missingNames[$dbField] ?? '';
+            return '«' . $name . '» (будет создано)';
         }
         switch ($dbField) {
             case 'department_id':

@@ -19,6 +19,11 @@ $action = $isEdit ? '/departments/' . (int)$department['id'] . '/edit' : '/depar
             </div>
 
             <div class="col-12">
+                <label class="form-label">Приветствие оператора</label>
+                <textarea name="operator_greeting" class="form-control" rows="4" placeholder="Например: «Отдел продаж, компания …, меня зовут …, чем могу помочь?»"><?= View::e($department['operator_greeting'] ?? '') ?></textarea>
+            </div>
+
+            <div class="col-12">
                 <label class="form-label">Описание</label>
                 <textarea name="description" class="form-control" rows="4"><?= View::e($department['description'] ?? '') ?></textarea>
             </div>

@@ -29,6 +29,12 @@ class Db
                     PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                     PDO::ATTR_EMULATE_PREPARES => false,
                 ]);
+                // Время, которое пишет сама база (DEFAULT CURRENT_TIMESTAMP у
+                // created_at/updated_at и т.п.), — в часовом поясе приложения
+                // (APP_TIMEZONE), а не в поясе сервера MySQL. Передаётся
+                // смещением (+07:00): именованные пояса требуют загруженных
+                // таблиц часовых поясов в MySQL, которых на хостинге может не быть.
+                self::$instance->exec("SET time_zone = '" . date('P') . "'");
             } catch (PDOException $e) {
                 http_response_code(500);
                 if (Env::get('APP_DEBUG', false)) {

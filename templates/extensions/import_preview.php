@@ -11,8 +11,20 @@ foreach ($rows as $r) {
 $valueColumns = array_values(array_diff($parsed['columns'], ['number']));
 $delimiterLabel = [';' => '«;»', ',' => '«,»', "\t" => 'табуляция'][$parsed['delimiter']] ?? $parsed['delimiter'];
 
+$missing = $parsed['missing'] ?? ['department' => [], 'division' => []];
+$missingTotal = count($missing['department']) + count($missing['division']);
+
+/** Названия недостающих записей строки по колонке БД — для подписи «(будет создано)» */
+$missingNames = function (array $row): array {
+    $names = [];
+    foreach ($row['missing'] ?? [] as $field => $name) {
+        $names[ExtensionCsvImport::CREATABLE[$field]['db']] = $name;
+    }
+    return $names;
+};
+
 /** Список изменений «Поле: было → станет» */
-$changeList = function (array $changes, array $existing): string {
+$changeList = function (array $changes, array $existing, array $names = []): string {
     if (!$changes) {
         return '<span class="text-muted">изменений не будет</span>';
     }
@@ -20,7 +32,7 @@ $changeList = function (array $changes, array $existing): string {
     foreach ($changes as $dbField => $new) {
         $items[] = '<li><span class="text-muted">' . View::e(ExtensionCsvImport::fieldLabel($dbField)) . ':</span> '
             . View::e(ExtensionCsvImport::display($dbField, $existing[$dbField] ?? null)) . ' → <strong>'
-            . View::e(ExtensionCsvImport::display($dbField, $new)) . '</strong></li>';
+            . View::e(ExtensionCsvImport::display($dbField, $new, $names)) . '</strong></li>';
     }
     return '<ul class="list-unstyled mb-0">' . implode('', $items) . '</ul>';
 };
@@ -58,6 +70,42 @@ $changeList = function (array $changes, array $existing): string {
     <?= Csrf::field() ?>
     <input type="hidden" name="token" value="<?= View::e($token) ?>">
 
+    <?php if ($missingTotal > 0): ?>
+        <div class="card mb-3 border-info">
+            <div class="card-header bg-white"><strong>Нет в справочниках — создать?</strong></div>
+            <div class="card-body">
+                <p class="small mb-3">В файле есть подразделения и отделы, которых ещё нет в справочниках. Отмеченные будут созданы
+                    при импорте (с этим названием, без описания) и проставлены номерам. Если запись не создавать, у этих номеров
+                    поле останется незаполненным, а у уже существующих номеров не изменится.</p>
+                <div class="row g-3">
+                    <?php foreach (ExtensionCsvImport::CREATABLE as $field => $meta): ?>
+                        <?php if (empty($missing[$field])) { continue; } ?>
+                        <div class="col-lg-6">
+                            <div class="fw-semibold mb-1"><?= View::e($meta['label'] === 'Отдел' ? 'Отделы' : 'Подразделения') ?> (<?= count($missing[$field]) ?>)</div>
+                            <ul class="list-group">
+                                <?php foreach ($missing[$field] as $key => $group): ?>
+                                    <?php $cbId = 'create-' . $field . '-' . $key; ?>
+                                    <li class="list-group-item">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="create_<?= $field ?>[]" value="<?= View::e($key) ?>" id="<?= $cbId ?>" checked>
+                                            <label class="form-check-label" for="<?= $cbId ?>">
+                                                Создать <?= $field === 'division' ? 'отдел' : 'подразделение' ?> <strong>«<?= View::e($group['name']) ?>»</strong>
+                                            </label>
+                                        </div>
+                                        <div class="small text-muted ms-4">
+                                            номеров: <?= count($group['numbers']) ?> —
+                                            <?= View::e(implode(', ', array_slice($group['numbers'], 0, 15))) ?><?= count($group['numbers']) > 15 ? ' …' : '' ?>
+                                        </div>
+                                    </li>
+                                <?php endforeach; ?>
+                            </ul>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+        </div>
+    <?php endif; ?>
+
     <div class="card mb-3">
         <div class="table-responsive">
             <table class="table table-sm mb-0 align-top">
@@ -76,7 +124,7 @@ $changeList = function (array $changes, array $existing): string {
                         <td class="small text-muted"><?= (int)$r['line'] ?></td>
                         <td class="fw-semibold"><?= View::e($r['number'] !== '' ? $r['number'] : '—') ?></td>
                         <?php foreach ($valueColumns as $c): ?>
-                            <td class="small" style="white-space: pre-wrap;"><?= View::e($r['raw'][$c] !== '' ? $r['raw'][$c] : '—') ?></td>
+                            <td class="small" style="white-space: pre-wrap;"><?= View::e($r['raw'][$c] !== '' ? $r['raw'][$c] : '—') ?><?php if ($r['status'] !== 'error' && isset($r['missing'][$c])): ?> <span class="badge text-bg-info" title="Нет в справочнике — будет создано, если отмечено выше">новое</span><?php endif; ?></td>
                         <?php endforeach; ?>
                         <td class="small">
                             <?php if ($r['status'] === 'new'): ?>
@@ -95,8 +143,8 @@ $changeList = function (array $changes, array $existing): string {
                                     <option value="replace">Заменить все данные</option>
                                     <option value="skip">Пропустить</option>
                                 </select>
-                                <div class="import-changes" data-mode="fill"><?= $changeList($r['changes']['fill'], $existing) ?></div>
-                                <div class="import-changes" data-mode="replace" style="display:none"><?= $changeList($r['changes']['replace'], $existing) ?></div>
+                                <div class="import-changes" data-mode="fill"><?= $changeList($r['changes']['fill'], $existing, $missingNames($r)) ?></div>
+                                <div class="import-changes" data-mode="replace" style="display:none"><?= $changeList($r['changes']['replace'], $existing, $missingNames($r)) ?></div>
                                 <div class="import-changes text-muted" data-mode="skip" style="display:none">номер не изменится</div>
                             <?php endif; ?>
                         </td>

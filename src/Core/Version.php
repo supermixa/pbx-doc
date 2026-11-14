@@ -9,8 +9,8 @@ namespace App\Core;
  */
 final class Version
 {
-    public const NUMBER = '0.25';
-    public const RELEASE_DATE = '2026-11-13';
+    public const NUMBER = '0.26';
+    public const RELEASE_DATE = '2026-11-14';
 
     /** Например: «версия 0.23 от 09.11.2026» */
     public static function label(): string
