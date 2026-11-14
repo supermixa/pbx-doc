@@ -58,6 +58,7 @@ function nav_active(string $path): string
                         <li><a class="dropdown-item" href="/music">Музыка</a></li>
                     </ul>
                 </li>
+                <li class="nav-item"><a class="nav-link<?= nav_active('/history') ?>" href="/history">История</a></li>
                 <?php if (Auth::isAdmin()): ?>
                 <li class="nav-item"><a class="nav-link<?= nav_active('/users') ?>" href="/users">Пользователи</a></li>
                 <?php endif; ?>

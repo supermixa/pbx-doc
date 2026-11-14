@@ -144,10 +144,12 @@ class RouteEntity
                     ORDER BY e.number";
             $params = ['id' => $routeId];
         } elseif ($route['selection_type'] === 'departments' && $route['department_id']) {
-            $sql = "SELECT id, number, caller_id_extension_id FROM extensions
+            $sql = "SELECT id, number, caller_id_extension_id FROM extensions e
                     WHERE department_id = :dep AND category = 'internal' AND type = 'internal'
+                      AND NOT EXISTS (SELECT 1 FROM route_excluded_extensions x
+                                      WHERE x.route_id = :route AND x.extension_id = e.id)
                     ORDER BY number";
-            $params = ['dep' => (int)$route['department_id']];
+            $params = ['dep' => (int)$route['department_id'], 'route' => $routeId];
         } else {
             return [];
         }
@@ -157,10 +159,12 @@ class RouteEntity
     }
 
     /**
-     * Исходящие маршруты с заполненным АОН, которые задают АОН этому
-     * внутреннему номеру: номер в составе маршрута или в подразделении
-     * маршрута ($departmentId — подразделение номера, в т.ч. только что
-     * выбранное в форме). $extensionId = null — номер ещё не создан.
+     * Исходящие маршруты, которые задают АОН этому внутреннему номеру:
+     * АОН маршрута — внешний «Городской»/«Сотовый» (только такой маршрут
+     * реально присваивает АОН), номер в составе маршрута или в подразделении
+     * маршрута и не исключён из него ($departmentId — подразделение номера,
+     * в т.ч. только что выбранное в форме). $extensionId = null — номер ещё
+     * не создан.
      *
      * @return array<int, array{id: int, name: string, outbound_caller_id_id: int, aon_number: string, via: string}>
      */
@@ -170,15 +174,81 @@ class RouteEntity
                        CASE WHEN r.selection_type = 'internal_numbers' THEN 'members' ELSE 'department' END AS via
                 FROM routes r
                 JOIN extensions aon ON aon.id = r.outbound_caller_id_id
-                WHERE r.direction = 'outbound' AND (
+                WHERE r.direction = 'outbound' AND aon.type IN ('did_city', 'did_mobile') AND (
                     (r.selection_type = 'internal_numbers' AND r.id IN (
-                        SELECT route_id FROM route_members WHERE member_extension_id = :ext))
-                    OR (r.selection_type = 'departments' AND r.department_id = :dep)
+                        SELECT route_id FROM route_members WHERE member_extension_id = :ext1))
+                    OR (r.selection_type = 'departments' AND r.department_id = :dep
+                        AND r.id NOT IN (SELECT route_id FROM route_excluded_extensions WHERE extension_id = :ext2))
                 )
                 ORDER BY r.name";
         $stmt = Db::connection()->prepare($sql);
-        $stmt->execute(['ext' => $extensionId ?? 0, 'dep' => $departmentId ?? 0]);
+        $ext = $extensionId ?? 0;
+        $stmt->execute(['ext1' => $ext, 'ext2' => $ext, 'dep' => $departmentId ?? 0]);
         return $stmt->fetchAll();
+    }
+
+    // ------------------------------------------------------------------
+    // Исключения номеров из маршрута «Подразделения»
+    // ------------------------------------------------------------------
+
+    /** Исключённые из маршрута номера */
+    public static function exclusions(int $routeId): array
+    {
+        $stmt = Db::connection()->prepare(
+            'SELECT e.id, e.number, e.owner FROM route_excluded_extensions x
+             JOIN extensions e ON e.id = x.extension_id
+             WHERE x.route_id = :id ORDER BY e.number'
+        );
+        $stmt->execute(['id' => $routeId]);
+        return $stmt->fetchAll();
+    }
+
+    /** @return int[] */
+    public static function excludedIds(int $routeId): array
+    {
+        return array_map('intval', array_column(self::exclusions($routeId), 'id'));
+    }
+
+    public static function addExclusion(int $routeId, int $extensionId): void
+    {
+        Db::connection()->prepare(
+            'INSERT IGNORE INTO route_excluded_extensions (route_id, extension_id) VALUES (:route, :ext)'
+        )->execute(['route' => $routeId, 'ext' => $extensionId]);
+    }
+
+    public static function removeMember(int $routeId, int $extensionId): void
+    {
+        Db::connection()->prepare('DELETE FROM route_members WHERE route_id = :route AND member_extension_id = :ext')
+            ->execute(['route' => $routeId, 'ext' => $extensionId]);
+    }
+
+    /**
+     * Приводит исключения маршрута в порядок после сохранения: у маршрута не
+     * «Подразделения» исключений нет; исключения номеров не из подразделения
+     * маршрута убираются; номера из $restoreIds возвращаются в маршрут.
+     */
+    public static function syncExclusions(int $routeId, array $restoreIds): void
+    {
+        $route = self::findRaw($routeId);
+        $conn = Db::connection();
+        if (!$route || $route['selection_type'] !== 'departments' || !$route['department_id']) {
+            $conn->prepare('DELETE FROM route_excluded_extensions WHERE route_id = :id')->execute(['id' => $routeId]);
+            return;
+        }
+        $conn->prepare(
+            'DELETE x FROM route_excluded_extensions x JOIN extensions e ON e.id = x.extension_id
+             WHERE x.route_id = :id AND (e.department_id IS NULL OR e.department_id <> :dep)'
+        )->execute(['id' => $routeId, 'dep' => (int)$route['department_id']]);
+        $del = $conn->prepare('DELETE FROM route_excluded_extensions WHERE route_id = :id AND extension_id = :ext');
+        foreach ($restoreIds as $extId) {
+            $del->execute(['id' => $routeId, 'ext' => (int)$extId]);
+        }
+    }
+
+    /** «101, 102» — для журнала изменений маршрута */
+    public static function summarizeExclusions(int $routeId): string
+    {
+        return implode(', ', array_column(self::exclusions($routeId), 'number'));
     }
 
     // ------------------------------------------------------------------

@@ -130,7 +130,7 @@ $qs = $queueSettings ?? null;
                         <?= View::e($errors['caller_id_route_conflict']) ?>
                         <div class="form-check mt-1">
                             <input class="form-check-input" type="checkbox" name="confirm_caller_id_override" value="1" id="confirm-caller-id-override">
-                            <label class="form-check-label" for="confirm-caller-id-override">Всё равно сохранить выбранный АОН</label>
+                            <label class="form-check-label" for="confirm-caller-id-override">Сохранить выбранный АОН и убрать номер из маршрута</label>
                         </div>
                     </div>
                 <?php endif; ?>

@@ -51,7 +51,7 @@ use App\Core\View;
 </div>
 
 <div class="card">
-    <div class="card-header bg-white"><strong>Последние изменения</strong></div>
+    <div class="card-header bg-white d-flex justify-content-between align-items-center"><strong>Последние изменения</strong> <a href="/history" class="small">Вся история →</a></div>
     <div class="card-body p-0">
         <?php if (empty($recent)): ?>
             <p class="text-muted p-3 mb-0">Пока нет ни одной записи в журнале изменений.</p>

@@ -38,6 +38,7 @@ use App\Controllers\EquipmentController;
 use App\Controllers\EquipmentTypeController;
 use App\Controllers\ExtensionController;
 use App\Controllers\ExtensionImportController;
+use App\Controllers\HistoryController;
 use App\Controllers\LegalEntityController;
 use App\Controllers\MusicController;
 use App\Controllers\ProviderController;
@@ -231,6 +232,10 @@ $router->post('/calltracking/departments/{id}/delete', fn($p) => (new Calltracki
 $router->get('/calltracking/departments/{id}', fn($p) => (new CalltrackingTargetController())->show($p));
 // Старые ссылки /calltracking/{id} (из журнала изменений) -> карточка цели
 $router->get('/calltracking/{id}', fn($p) => (new CalltrackingTargetController())->legacyRedirect($p));
+
+// ---- История изменений (всем ролям) --------------------------------------
+$router->get('/history', fn() => (new HistoryController())->index());
+$router->get('/history/export', fn() => (new HistoryController())->export());
 
 // ---- Пользователи (только администратор) -------------------------------
 $router->get('/users', fn() => (new UserController())->index());

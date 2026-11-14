@@ -28,6 +28,9 @@ use Throwable;
 
 class ExtensionController
 {
+    /** Маршруты, из которых убрать номер после сохранения (подтверждённая смена АОН) */
+    private array $routesToDetach = [];
+
     /** Вкладка -> [категория, тип (null = любой тип этой категории)] */
     private const INDEX_TABS = [
         'external' => ['external', null],
@@ -238,6 +241,7 @@ class ExtensionController
         AuditLogger::logCreate('extension', $id, self::forAudit($auditData));
 
         Flash::success('Номер создан');
+        $this->detachFromRoutes($id, $data['number']);
         header('Location: /extensions/' . $id);
     }
 
@@ -313,6 +317,7 @@ class ExtensionController
         AuditLogger::logUpdate('extension', $id, self::forAudit($oldForDiff), self::forAudit($newForDiff));
 
         Flash::success('Изменения сохранены');
+        $this->detachFromRoutes($id, $data['number']);
         header('Location: /extensions/' . $id);
     }
 
@@ -461,6 +466,21 @@ class ExtensionController
         ]);
     }
 
+    /** Убирает номер из маршрутов, АОН которых он больше не получает (см. validate()) */
+    private function detachFromRoutes(int $extensionId, string $number): void
+    {
+        $names = [];
+        foreach ($this->routesToDetach as $r) {
+            $name = RouteController::detachNumberFromRoute((int)$r['id'], $extensionId);
+            if ($name !== null) {
+                $names[] = '«' . $name . '»';
+            }
+        }
+        if ($names) {
+            Flash::warning('Номеру ' . $number . ' задан АОН вручную — номер убран из исходящего маршрута: ' . implode(', ', $names) . '.');
+        }
+    }
+
     /**
      * Для журнала изменений АОН пишется номером, а не ID — история остаётся
      * читаемой, даже если внешний номер потом удалят.
@@ -578,22 +598,24 @@ class ExtensionController
             }
         }
         // АОН задаётся исходящим маршрутом (номер в его составе или в его
-        // подразделении)? Тогда смена АОН вручную требует подтверждения —
-        // иначе номер разойдётся с маршрутом.
+        // подразделении)? Тогда смена АОН вручную требует подтверждения, а
+        // после сохранения номер убирается из этих маршрутов (иначе маршрут
+        // при следующем сохранении вернул бы свой АОН).
+        $this->routesToDetach = [];
         if ($category === 'internal' && $type === 'internal' && !isset($v->errors()['caller_id_extension_id'])) {
             $oldCallerId = $currentId ? (ExtensionNumber::findRaw($currentId)['caller_id_extension_id'] ?? null) : null;
             $changed = (int)($oldCallerId ?? 0) !== (int)($callerIdExtensionId ?? 0);
-            if ($changed && empty($input['confirm_caller_id_override'])) {
-                $conflicts = array_filter(
-                    RouteEntity::callerIdRoutesFor($currentId, $departmentId),
-                    fn($r) => (int)$r['outbound_caller_id_id'] !== (int)($callerIdExtensionId ?? 0)
-                );
-                if ($conflicts) {
-                    $names = array_map(fn($r) => '«' . $r['name'] . '» (АОН ' . $r['aon_number'] . ')', $conflicts);
-                    $v->addError('caller_id_route_conflict', 'АОН этого номера задаётся исходящим маршрутом: '
-                        . implode(', ', $names) . '. Если сохранить другой АОН, номер будет отличаться от маршрута, '
-                        . 'а при следующем сохранении маршрута АОН снова заменится на АОН маршрута.');
-                }
+            $conflicts = $changed ? array_values(array_filter(
+                RouteEntity::callerIdRoutesFor($currentId, $departmentId),
+                fn($r) => (int)$r['outbound_caller_id_id'] !== (int)($callerIdExtensionId ?? 0)
+            )) : [];
+            if ($conflicts && empty($input['confirm_caller_id_override'])) {
+                $names = array_map(fn($r) => '«' . $r['name'] . '» (АОН ' . $r['aon_number'] . ')', $conflicts);
+                $v->addError('caller_id_route_conflict', 'АОН этого номера задаётся исходящим маршрутом: '
+                    . implode(', ', $names) . '. Если сохранить другой АОН, номер будет убран из '
+                    . (count($conflicts) > 1 ? 'этих маршрутов' : 'этого маршрута') . '.');
+            } elseif ($conflicts) {
+                $this->routesToDetach = $conflicts;
             }
         }
 

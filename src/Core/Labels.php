@@ -121,6 +121,7 @@ class Labels
         'calltracking_target_id' => 'Цель Calltracking',
         'caller_id_extension_id' => 'АОН',
         'division_id' => 'Отдел',
+        'excluded' => 'Исключены из маршрута',
         'target' => 'Цель',
         'goals' => 'Цели',
         'title' => 'Название',
@@ -334,6 +335,59 @@ class Labels
      * у номеров (см. extensionTypeLabel). Если не передана, используется
      * подпись по умолчанию (как для внешнего номера).
      */
+    /** Ссылочные поля журнала: поле => [таблица, колонка с названием] */
+    private const REFERENCE_FIELDS = [
+        'department_id' => ['departments', 'name'],
+        'trunk_id' => ['trunks', 'name'],
+        'scenario_id' => ['scenarios', 'name'],
+        'legal_entity_id' => ['legal_entities', 'name'],
+        'provider_id' => ['providers', 'name'],
+        'outbound_caller_id_id' => ['extensions', 'number'],
+        'equipment_type_id' => ['equipment_types', 'name'],
+        'moh_music_id' => ['music_files', 'title'],
+        'announcement_music_id' => ['music_files', 'title'],
+        'goal_id' => ['calltracking_goals', 'name'],
+    ];
+
+    /**
+     * Поля, которые уже пишутся в журнал названием/номером (а не ID) —
+     * их не расшифровываем (см. forAudit() в контроллерах).
+     */
+    private const REFERENCE_SKIP = [
+        'trunk' => ['provider_id'],
+    ];
+
+    private static array $referenceCache = [];
+
+    /**
+     * ID из журнала изменений → название записи («Подразделение: 2» →
+     * «Отдел продаж»). Удалённая запись — «#2 (удалено)». null — поле не
+     * ссылочное или значение не похоже на ID.
+     */
+    private static function resolveReference(string $entityType, string $field, $value): ?string
+    {
+        if (!isset(self::REFERENCE_FIELDS[$field]) || in_array($field, self::REFERENCE_SKIP[$entityType] ?? [], true)) {
+            return null;
+        }
+        if (!is_int($value) && !(is_string($value) && ctype_digit($value))) {
+            return null;
+        }
+        [$table, $column] = self::REFERENCE_FIELDS[$field];
+        $id = (int)$value;
+        $key = $table . ':' . $id;
+        if (!array_key_exists($key, self::$referenceCache)) {
+            try {
+                $stmt = Db::connection()->prepare("SELECT {$column} FROM {$table} WHERE id = :id");
+                $stmt->execute(['id' => $id]);
+                $name = $stmt->fetchColumn();
+                self::$referenceCache[$key] = $name === false ? null : (string)$name;
+            } catch (\Throwable $e) {
+                self::$referenceCache[$key] = null;
+            }
+        }
+        return self::$referenceCache[$key] ?? ('#' . $id . ' (удалено)');
+    }
+
     public static function formatFieldValue(string $entityType, string $field, $value, ?string $category = null): string
     {
         if ($value === null || $value === '') {
@@ -341,6 +395,9 @@ class Labels
         }
         if ($field === 'password_hash') {
             return '(изменён)';
+        }
+        if (($resolved = self::resolveReference($entityType, $field, $value)) !== null) {
+            return $resolved;
         }
         if (in_array($field, ['is_active', 'agent_ring_in_use', 'announce_position', 'announce_hold_time'], true)) {
             return ((string)$value === '1') ? 'Да' : 'Нет';

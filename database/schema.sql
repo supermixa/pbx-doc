@@ -430,6 +430,22 @@ CREATE TABLE IF NOT EXISTS route_members (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------------------------------------------------------
+-- Внутренние номера, исключённые из исходящего маршрута с типом отбора
+-- «Подразделения» (маршрут действует на все номера подразделения, кроме этих).
+-- Номер исключается, когда ему вручную задают АОН, отличный от АОН маршрута,
+-- или когда другой маршрут присваивает ему свой АОН.
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS route_excluded_extensions (
+    route_id        INT UNSIGNED        NOT NULL,
+    extension_id    INT UNSIGNED        NOT NULL,
+    created_at      DATETIME            NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (route_id, extension_id),
+    KEY idx_route_excluded_extension (extension_id),
+    CONSTRAINT fk_route_excluded_route FOREIGN KEY (route_id) REFERENCES routes(id) ON DELETE CASCADE,
+    CONSTRAINT fk_route_excluded_extension FOREIGN KEY (extension_id) REFERENCES extensions(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ----------------------------------------------------------------------------
 -- Журнал аудита — кто, что и когда изменил
 -- entity_type: trunk | route | scenario | extension | user | department |
 --              equipment_type | equipment | legal_entity | provider |

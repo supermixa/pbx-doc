@@ -146,7 +146,9 @@
             return;
         }
         departmentMembersList.innerHTML = '<li class="list-group-item text-muted">Загрузка...</li>';
-        fetch('/routes/department-members?department_id=' + encodeURIComponent(departmentId))
+        var routeId = departmentMembersList.getAttribute('data-route-id') || '';
+        var restore = (departmentMembersList.getAttribute('data-restore') || '').split(',');
+        fetch('/routes/department-members?department_id=' + encodeURIComponent(departmentId) + '&route_id=' + encodeURIComponent(routeId))
             .then(function (r) { return r.json(); })
             .then(function (items) {
                 if (!items.length) {
@@ -157,7 +159,27 @@
                 items.forEach(function (item) {
                     var li = document.createElement('li');
                     li.className = 'list-group-item';
-                    li.textContent = item.label;
+                    if (!item.excluded) {
+                        li.textContent = item.label;
+                    } else {
+                        // Номер исключён из маршрута (ему задан другой АОН) — можно вернуть
+                        li.className += ' text-muted d-flex justify-content-between align-items-center flex-wrap gap-2';
+                        var span = document.createElement('span');
+                        span.innerHTML = '<s></s> <span class="badge text-bg-secondary">исключён из маршрута</span>';
+                        span.querySelector('s').textContent = item.label;
+                        var label = document.createElement('label');
+                        label.className = 'form-check-label small';
+                        var cb = document.createElement('input');
+                        cb.type = 'checkbox';
+                        cb.className = 'form-check-input me-1';
+                        cb.name = 'restore_exclusion[]';
+                        cb.value = item.id;
+                        cb.checked = restore.indexOf(String(item.id)) !== -1;
+                        label.appendChild(cb);
+                        label.appendChild(document.createTextNode('вернуть в маршрут'));
+                        li.appendChild(span);
+                        li.appendChild(label);
+                    }
                     departmentMembersList.appendChild(li);
                 });
             })

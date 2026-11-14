@@ -15,6 +15,39 @@ $currentSelectionType = $route['selection_type'] ?? '';
     <div class="card-body">
         <?= Csrf::field() ?>
 
+        <?php $routeWarnings = $routeWarnings ?? []; ?>
+        <?php if (!empty($routeWarnings['conflicts'])): ?>
+            <div class="alert alert-warning">
+                <strong>Номера входят в другие исходящие маршруты с другим АОН.</strong>
+                Этот маршрут присвоит им свой АОН, поэтому из других маршрутов они будут убраны
+                (из состава — для «Внутренние номера», в исключения — для «Подразделения»):
+                <ul class="mb-2 mt-1">
+                    <?php foreach ($routeWarnings['conflicts'] as $c): ?>
+                        <li><?= View::e($c['number']) ?> — маршрут <a href="/routes/<?= (int)$c['route']['id'] ?>" target="_blank">«<?= View::e($c['route']['name']) ?>»</a> (АОН <?= View::e($c['route']['aon_number']) ?>)</li>
+                    <?php endforeach; ?>
+                </ul>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="confirm_route_conflicts" value="1" id="confirm-route-conflicts" required>
+                    <label class="form-check-label" for="confirm-route-conflicts">Да, убрать эти номера из других маршрутов</label>
+                </div>
+            </div>
+        <?php endif; ?>
+        <?php if (!empty($routeWarnings['lost'])): ?>
+            <div class="alert alert-warning">
+                <strong>Маршрут перестанет задавать АОН номерам:</strong>
+                <?= View::e(implode(', ', array_column($routeWarnings['lost'], 'number'))) ?>
+                (АОН маршрута убран, номер исключён из маршрута или изменён отбор). Сейчас у них стоит АОН этого маршрута. Что с ним сделать?
+                <div class="form-check mt-1">
+                    <input class="form-check-input" type="radio" name="lost_aon_action" value="clear" id="lost-aon-clear" required>
+                    <label class="form-check-label" for="lost-aon-clear">Очистить АОН у этих номеров</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="lost_aon_action" value="keep" id="lost-aon-keep">
+                    <label class="form-check-label" for="lost-aon-keep">Оставить АОН как есть</label>
+                </div>
+            </div>
+        <?php endif; ?>
+
         <div class="row g-3">
             <div class="col-md-6">
                 <label class="form-label">Название *</label>
@@ -115,7 +148,7 @@ $currentSelectionType = $route['selection_type'] ?? '';
             </div>
             <div class="col-md-6 direction-field outbound-field selection-field sel-departments" id="department-members-field">
                 <label class="form-label">Внутренние номера подразделения</label>
-                <ul class="list-group" id="department-members-list">
+                <ul class="list-group" id="department-members-list" data-route-id="<?= $isEdit ? (int)$route['id'] : '' ?>" data-restore="<?= View::e(implode(',', $restoreIds ?? [])) ?>">
                     <li class="list-group-item text-muted" id="department-members-empty">— сначала выберите подразделение —</li>
                 </ul>
             </div>

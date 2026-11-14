@@ -51,6 +51,8 @@ class RouteController
             'departmentMembers' => (!empty($route['department_id']) && $route['selection_type'] === 'departments')
                 ? ExtensionNumber::departmentInternalNumbers((int)$route['department_id'])
                 : [],
+            'excludedIds' => RouteEntity::excludedIds((int)$route['id']),
+            'aonNumbers' => self::numbersWithRouteCallerId((int)$route['id']),
             'history' => AuditLog::forEntity('route', (int)$route['id']),
         ]);
     }
@@ -76,11 +78,14 @@ class RouteController
 
         [$data, $validator, $memberIds] = $this->validate($_POST);
         if ($validator->fails()) {
-            View::render('routes/form', array_merge([
-                'title' => 'Новый маршрут',
-                'route' => $_POST,
-                'errors' => $validator->errors(),
-            ], $this->formOptions()));
+            $this->renderForm('Новый маршрут', $_POST, $validator->errors(), null, $memberIds);
+            return;
+        }
+
+        // АОН маршрута ↔ АОН внутренних номеров: конфликты с другими маршрутами
+        $plan = $this->callerIdPlan(null, $data, $memberIds, []);
+        if ($warnings = $this->unconfirmedWarnings($plan)) {
+            $this->renderForm('Новый маршрут', $_POST, [], null, $memberIds, $warnings);
             return;
         }
 
@@ -91,6 +96,8 @@ class RouteController
         try {
             $id = RouteEntity::create($data);
             RouteEntity::replaceRouteMembers($id, $memberIds);
+            RouteEntity::syncExclusions($id, []);
+            $detached = $this->detachConflicts($plan);
             $callerIdResult = $this->applyCallerIdToInternalNumbers($id, $data);
             $conn->commit();
         } catch (Throwable $e) {
@@ -105,6 +112,7 @@ class RouteController
         AuditLogger::logCreate('route', $id, $auditData);
 
         Flash::success('Маршрут создан');
+        $this->reportDetached($detached);
         $this->reportCallerIdResult($callerIdResult);
         header('Location: /routes/' . $id);
     }
@@ -143,14 +151,20 @@ class RouteController
         }
 
         $oldMembersSummary = ExtensionNumber::summarizeMembers(RouteEntity::routeMembers($id));
+        $oldExclusionsSummary = RouteEntity::summarizeExclusions($id);
+        $restoreIds = $this->postedIds('restore_exclusion');
 
         [$data, $validator, $memberIds] = $this->validate($_POST, $id);
         if ($validator->fails()) {
-            View::render('routes/form', array_merge([
-                'title' => 'Редактирование маршрута',
-                'route' => array_merge($old, $_POST, ['id' => $id]),
-                'errors' => $validator->errors(),
-            ], $this->formOptions($id)));
+            $this->renderForm('Редактирование маршрута', array_merge($old, $_POST, ['id' => $id]), $validator->errors(), $id, $memberIds, [], $restoreIds);
+            return;
+        }
+
+        // АОН маршрута ↔ АОН внутренних номеров: конфликты с другими маршрутами
+        // и номера, которые перестают получать АОН от этого маршрута
+        $plan = $this->callerIdPlan($id, $data, $memberIds, $restoreIds);
+        if ($warnings = $this->unconfirmedWarnings($plan)) {
+            $this->renderForm('Редактирование маршрута', array_merge($old, $_POST, ['id' => $id]), [], $id, $memberIds, $warnings, $restoreIds);
             return;
         }
 
@@ -161,6 +175,9 @@ class RouteController
         try {
             RouteEntity::update($id, $data);
             RouteEntity::replaceRouteMembers($id, $memberIds);
+            RouteEntity::syncExclusions($id, $restoreIds);
+            $detached = $this->detachConflicts($plan);
+            $cleared = ($_POST['lost_aon_action'] ?? '') === 'clear' ? $this->clearCallerId($plan['lost']) : [];
             $callerIdResult = $this->applyCallerIdToInternalNumbers($id, $data);
             $conn->commit();
         } catch (Throwable $e) {
@@ -170,13 +187,17 @@ class RouteController
 
         $oldForDiff = $old;
         $oldForDiff['members'] = $oldMembersSummary;
+        $oldForDiff['excluded'] = $oldExclusionsSummary;
 
         $newForDiff = $data;
         $newForDiff['members'] = ExtensionNumber::summarizeMembers(RouteEntity::routeMembers($id));
+        $newForDiff['excluded'] = RouteEntity::summarizeExclusions($id);
 
         AuditLogger::logUpdate('route', $id, $oldForDiff, $newForDiff);
 
         Flash::success('Изменения сохранены');
+        $this->reportDetached($detached);
+        $this->reportLost($plan['lost'], $cleared);
         $this->reportCallerIdResult($callerIdResult);
         header('Location: /routes/' . $id);
     }
@@ -191,12 +212,223 @@ class RouteController
         $id = (int)$params['id'];
         $old = RouteEntity::findRaw($id);
         if ($old) {
+            // Номера, получившие АОН от этого маршрута: по выбору пользователя
+            // АОН у них очищается или остаётся
+            $lost = self::numbersWithRouteCallerId($id);
+            $cleared = ($_POST['lost_aon_action'] ?? 'keep') === 'clear' ? $this->clearCallerId($lost) : [];
             $old['members'] = ExtensionNumber::summarizeMembers(RouteEntity::routeMembers($id));
             AuditLogger::logDelete('route', $id, $old);
             RouteEntity::delete($id);
             Flash::success('Маршрут удалён');
+            $this->reportLost($lost, $cleared);
         }
         header('Location: /routes');
+    }
+
+    // ------------------------------------------------------------------
+    // АОН маршрута ↔ АОН внутренних номеров
+    // ------------------------------------------------------------------
+
+    /**
+     * Внутренние номера маршрута, у которых сейчас стоит АОН этого маршрута
+     * (то есть полученный от него). Только для маршрутов, реально задающих
+     * АОН (АОН — «Городской»/«Сотовый»).
+     */
+    public static function numbersWithRouteCallerId(int $routeId): array
+    {
+        $route = RouteEntity::findRaw($routeId);
+        $aonId = (int)($route['outbound_caller_id_id'] ?? 0);
+        if (!$route || $aonId <= 0) {
+            return [];
+        }
+        $aon = ExtensionNumber::findRaw($aonId);
+        if (!$aon || !in_array($aon['type'], ExtensionNumber::CALLER_ID_TYPES, true)) {
+            return [];
+        }
+        return array_values(array_filter(
+            RouteEntity::coveredInternalNumbers($routeId),
+            fn($e) => (int)($e['caller_id_extension_id'] ?? 0) === $aonId
+        ));
+    }
+
+    /**
+     * Убирает номер из маршрута: из состава (тип «Внутренние номера») или
+     * добавляет в исключения (тип «Подразделения»). Пишет журнал маршрута.
+     * Возвращает название маршрута (или null, если маршрута нет).
+     */
+    public static function detachNumberFromRoute(int $routeId, int $extensionId): ?string
+    {
+        $route = RouteEntity::findRaw($routeId);
+        if (!$route) {
+            return null;
+        }
+        if ($route['selection_type'] === 'internal_numbers') {
+            $before = ExtensionNumber::summarizeMembers(RouteEntity::routeMembers($routeId));
+            RouteEntity::removeMember($routeId, $extensionId);
+            AuditLogger::logUpdate('route', $routeId, ['members' => $before],
+                ['members' => ExtensionNumber::summarizeMembers(RouteEntity::routeMembers($routeId))]);
+        } elseif ($route['selection_type'] === 'departments') {
+            $before = RouteEntity::summarizeExclusions($routeId);
+            RouteEntity::addExclusion($routeId, $extensionId);
+            AuditLogger::logUpdate('route', $routeId, ['excluded' => $before],
+                ['excluded' => RouteEntity::summarizeExclusions($routeId)]);
+        }
+        return $route['name'];
+    }
+
+    /**
+     * Что произойдёт с АОН внутренних номеров при сохранении маршрута:
+     *   conflicts — номера маршрута, которые входят в ДРУГОЙ маршрут с другим
+     *               АОН (при сохранении их нужно убрать из того маршрута);
+     *   lost      — номера, у которых стоит АОН этого маршрута, но после
+     *               сохранения маршрут перестанет его задавать (АОН убран
+     *               или номер исключён из маршрута) — очистить АОН или оставить.
+     */
+    private function callerIdPlan(?int $routeId, array $data, array $memberIds, array $restoreIds): array
+    {
+        $plan = ['newAon' => null, 'conflicts' => [], 'lost' => []];
+        $newCovered = [];
+        $covers = $data['direction'] === 'outbound'
+            && in_array($data['selection_type'], ['internal_numbers', 'departments'], true);
+        if ($covers) {
+            if ($data['selection_type'] === 'internal_numbers') {
+                $newCovered = array_map('intval', $memberIds);
+            } elseif (!empty($data['department_id'])) {
+                $excluded = [];
+                if ($routeId) {
+                    $old = RouteEntity::findRaw($routeId);
+                    if ($old && $old['selection_type'] === 'departments' && (int)$old['department_id'] === (int)$data['department_id']) {
+                        $excluded = array_diff(RouteEntity::excludedIds($routeId), $restoreIds);
+                    }
+                }
+                foreach (ExtensionNumber::departmentInternalNumbers((int)$data['department_id']) as $e) {
+                    if (!in_array((int)$e['id'], $excluded, true)) {
+                        $newCovered[] = (int)$e['id'];
+                    }
+                }
+            }
+            $aon = !empty($data['outbound_caller_id_id']) ? ExtensionNumber::findRaw((int)$data['outbound_caller_id_id']) : null;
+            if ($aon && in_array($aon['type'], ExtensionNumber::CALLER_ID_TYPES, true)) {
+                $plan['newAon'] = (int)$aon['id'];
+            }
+        }
+
+        if ($plan['newAon']) {
+            foreach ($newCovered as $extId) {
+                $ext = ExtensionNumber::findRaw($extId);
+                if (!$ext) {
+                    continue;
+                }
+                $deptId = $ext['department_id'] !== null ? (int)$ext['department_id'] : null;
+                foreach (RouteEntity::callerIdRoutesFor($extId, $deptId) as $r) {
+                    if ((int)$r['id'] !== (int)$routeId && (int)$r['outbound_caller_id_id'] !== $plan['newAon']) {
+                        $plan['conflicts'][] = ['extension_id' => $extId, 'number' => $ext['number'], 'route' => $r];
+                    }
+                }
+            }
+        }
+
+        if ($routeId) {
+            foreach (self::numbersWithRouteCallerId($routeId) as $e) {
+                if ($plan['newAon'] === null || !in_array((int)$e['id'], $newCovered, true)) {
+                    $plan['lost'][] = $e;
+                }
+            }
+        }
+        return $plan;
+    }
+
+    /** Предупреждения, которые пользователь ещё не подтвердил в форме */
+    private function unconfirmedWarnings(array $plan): array
+    {
+        $warnings = [];
+        if ($plan['conflicts'] && empty($_POST['confirm_route_conflicts'])) {
+            $warnings['conflicts'] = $plan['conflicts'];
+        }
+        if ($plan['lost'] && !in_array($_POST['lost_aon_action'] ?? '', ['clear', 'keep'], true)) {
+            $warnings['lost'] = $plan['lost'];
+        }
+        return $warnings;
+    }
+
+    /** Убирает номера из других маршрутов (подтверждённые конфликты) */
+    private function detachConflicts(array $plan): array
+    {
+        $detached = [];
+        foreach ($plan['conflicts'] as $c) {
+            $name = self::detachNumberFromRoute((int)$c['route']['id'], (int)$c['extension_id']);
+            if ($name !== null) {
+                $detached[] = ['number' => $c['number'], 'route' => $name];
+            }
+        }
+        return $detached;
+    }
+
+    /** Очищает АОН у номеров (с журналом изменений). Возвращает номера, у которых очищен. */
+    private function clearCallerId(array $numbers): array
+    {
+        $stmt = Db::connection()->prepare('UPDATE extensions SET caller_id_extension_id = NULL, updated_by = :user WHERE id = :id');
+        $cleared = [];
+        foreach ($numbers as $e) {
+            $stmt->execute(['user' => Auth::id(), 'id' => (int)$e['id']]);
+            AuditLogger::logUpdate('extension', (int)$e['id'],
+                ExtensionController::forAudit(['caller_id_extension_id' => $e['caller_id_extension_id']]),
+                ['caller_id_extension_id' => null]);
+            $cleared[] = $e['number'];
+        }
+        return $cleared;
+    }
+
+    private function reportDetached(array $detached): void
+    {
+        if ($detached) {
+            $items = array_map(fn($d) => $d['number'] . ' — из «' . $d['route'] . '»', $detached);
+            Flash::warning('Номера убраны из других исходящих маршрутов (там был другой АОН): ' . implode('; ', $items) . '.');
+        }
+    }
+
+    private function reportLost(array $lost, array $cleared): void
+    {
+        if (!$lost) {
+            return;
+        }
+        $numbers = implode(', ', array_column($lost, 'number'));
+        if ($cleared) {
+            Flash::warning('АОН очищен у внутренних номеров, которые больше не получают его от маршрута: ' . $numbers . '.');
+        } else {
+            Flash::warning('У внутренних номеров ' . $numbers . ' оставлен прежний АОН, хотя маршрут его больше не задаёт.');
+        }
+    }
+
+    /** ID из POST-массива (restore_exclusion[] и т.п.) */
+    private function postedIds(string $key): array
+    {
+        $raw = $_POST[$key] ?? [];
+        return array_values(array_filter(array_map('intval', is_array($raw) ? $raw : []), fn($v) => $v > 0));
+    }
+
+    /**
+     * Форма маршрута при ошибке/предупреждении: состав и отмеченные
+     * «вернуть в маршрут» берутся из присланной формы, а не из базы.
+     */
+    private function renderForm(string $title, array $route, array $errors, ?int $routeId, array $memberIds,
+                                array $warnings = [], array $restoreIds = []): void
+    {
+        $members = [];
+        foreach ($memberIds as $mid) {
+            $m = ExtensionNumber::findRaw((int)$mid);
+            if ($m) {
+                $members[] = $m;
+            }
+        }
+        View::render('routes/form', array_merge($this->formOptions($routeId), [
+            'title' => $title,
+            'route' => $route,
+            'errors' => $errors,
+            'routeMembers' => $members,
+            'routeWarnings' => $warnings,
+            'restoreIds' => $restoreIds,
+        ]));
     }
 
     /**
@@ -219,9 +451,15 @@ class RouteController
         }
 
         $rows = ExtensionNumber::departmentInternalNumbers($departmentId);
+        // Номера, исключённые из редактируемого маршрута (route_id) — помечаются
+        $routeId = isset($_GET['route_id']) ? (int)$_GET['route_id'] : 0;
+        $route = $routeId > 0 ? RouteEntity::findRaw($routeId) : null;
+        $excluded = ($route && $route['selection_type'] === 'departments' && (int)$route['department_id'] === $departmentId)
+            ? RouteEntity::excludedIds($routeId) : [];
         $results = array_map(fn($r) => [
             'id' => (int)$r['id'],
             'label' => $r['number'] . ($r['owner'] ? ' — ' . $r['owner'] : ''),
+            'excluded' => in_array((int)$r['id'], $excluded, true),
         ], $rows);
         echo json_encode($results);
     }

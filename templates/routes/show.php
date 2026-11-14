@@ -17,8 +17,14 @@ $selectionType = $route['selection_type'] ?? null;
             <a href="/routes/<?= (int)$route['id'] ?>/edit" class="btn btn-outline-primary">Редактировать</a>
         <?php endif; ?>
         <?php if (Auth::canDelete()): ?>
-            <form method="post" action="/routes/<?= (int)$route['id'] ?>/delete" onsubmit="return confirm('Удалить маршрут «<?= View::e(addslashes($route['name'])) ?>»? Действие необратимо.');">
+            <form method="post" action="/routes/<?= (int)$route['id'] ?>/delete" class="d-flex gap-2 align-items-center" onsubmit="return confirm('Удалить маршрут «<?= View::e(addslashes($route['name'])) ?>»? Действие необратимо.');">
                 <?= Csrf::field() ?>
+                <?php if (!empty($aonNumbers)): ?>
+                    <select name="lost_aon_action" class="form-select form-select-sm" style="width:auto" title="Внутренние номера, получившие АОН от этого маршрута: <?= View::e(implode(', ', array_column($aonNumbers, 'number'))) ?>">
+                        <option value="keep">АОН у номеров маршрута (<?= count($aonNumbers) ?>): оставить</option>
+                        <option value="clear">АОН у номеров маршрута (<?= count($aonNumbers) ?>): очистить</option>
+                    </select>
+                <?php endif; ?>
                 <button type="submit" class="btn btn-outline-danger">Удалить</button>
             </form>
         <?php endif; ?>
@@ -109,8 +115,12 @@ $selectionType = $route['selection_type'] ?? null;
                     <?php else: ?>
                         <ul class="list-group list-group-flush">
                             <?php foreach ($departmentMembers as $m): ?>
-                                <li class="list-group-item d-flex justify-content-between align-items-center">
-                                    <a href="/extensions/<?= (int)$m['id'] ?>"><?= View::e($m['number']) ?></a>
+                                <?php $isExcluded = in_array((int)$m['id'], $excludedIds ?? [], true); ?>
+                                <li class="list-group-item d-flex justify-content-between align-items-center<?= $isExcluded ? ' text-muted' : '' ?>">
+                                    <span>
+                                        <a href="/extensions/<?= (int)$m['id'] ?>"<?= $isExcluded ? ' class="text-muted text-decoration-line-through"' : '' ?>><?= View::e($m['number']) ?></a>
+                                        <?php if ($isExcluded): ?><span class="badge text-bg-secondary ms-1" title="Номеру задан другой АОН — маршрут на него не действует. Вернуть можно в редактировании маршрута.">исключён из маршрута</span><?php endif; ?>
+                                    </span>
                                     <span class="text-muted small"><?= View::e($m['owner'] ?? '') ?></span>
                                 </li>
                             <?php endforeach; ?>
